@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#F0F2EF">
+<title>Mustang Transmission Checker</title>
+<link rel="manifest" id="manifestLink">
+<style>
+  :root {
+    --paper: #F0F2EF;
+    --ink: #14181C;
+    --ink-soft: #4A5158;
+    --card: #FAFBF9;
+    --teal: #1B6E63;
+    --teal-dark: #114A43;
+    --teal-light: #E8F3F1;
+    --red: #C0392B;
+    --red-light: #FDECEA;
+    --green: #1B6E3A;
+    --green-light: #E8F5EE;
+    --amber: #B8902E;
+    --amber-light: #FDF6E3;
+    --line: #D0D4CF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .header { margin-bottom: 36px; padding-bottom: 24px; border-bottom: 2px solid var(--ink); }
+  .header h1 { font-family: Georgia, serif; font-size: clamp(24px, 5vw, 34px); letter-spacing: -0.02em; margin-bottom: 4px; }
+  .header p { color: var(--ink-soft); font-size: 14px; }
+  .tabs { display: flex; gap: 2px; margin-bottom: 24px; background: var(--line); padding: 2px; border-radius: 4px; width: fit-content; flex-wrap: wrap; }
+  .tab { padding: 8px 20px; font-size: 13px; font-weight: 600; font-family: inherit; border: none; background: transparent; color: var(--ink-soft); border-radius: 3px; cursor: pointer; transition: all 0.15s; }
+  .tab.active { background: var(--ink); color: var(--paper); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 28px; margin-bottom: 20px; }
+  .field-label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); margin-bottom: 6px; }
+  textarea, input[type="text"], input[type="date"] {
+    font-family: inherit; font-size: 14px;
+    padding: 11px 14px; border: 1px solid var(--line);
+    border-radius: 3px; background: #fff; color: var(--ink); width: 100%;
+  }
+  textarea { resize: vertical; }
+  textarea.mono, input.mono { font-family: 'Courier New', monospace; letter-spacing: 0.04em; }
+  textarea:focus, input:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+  button.primary { font-family: inherit; font-size: 14px; font-weight: 600; background: var(--ink); color: var(--paper); border: none; padding: 10px 22px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+  button.primary:hover { background: var(--teal-dark); }
+  button.secondary { font-family: inherit; font-size: 13px; font-weight: 600; background: transparent; color: var(--ink); border: 1px solid var(--ink); padding: 9px 16px; border-radius: 3px; cursor: pointer; }
+  button.secondary:hover { background: var(--ink); color: var(--paper); }
+  button.danger { font-family: inherit; font-size: 12px; font-weight: 600; background: transparent; color: var(--red); border: 1px solid var(--red); padding: 5px 12px; border-radius: 3px; cursor: pointer; }
+  button.danger:hover { background: var(--red-light); }
+  button.amber { font-family: inherit; font-size: 12px; font-weight: 600; background: transparent; color: var(--amber); border: 1px solid var(--amber); padding: 5px 12px; border-radius: 3px; cursor: pointer; }
+  button.amber:hover { background: var(--amber-light); }
+  .notice { font-size: 13px; margin-top: 10px; min-height: 20px; }
+  .notice.success { color: var(--green); font-weight: 600; }
+  .notice.error { color: var(--red); font-weight: 600; }
+  .loading-bar { text-align:center; padding: 40px 20px; color: var(--ink-soft); font-size: 14px; }
+  .single-result { margin-top: 18px; padding: 18px 20px; border-radius: 4px; }
+  .single-result.found { background: var(--green-light); border: 1px solid var(--green); }
+  .single-result.not-found { background: var(--red-light); border: 1px solid var(--red); }
+  .result-status { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .found .result-status { color: var(--green); }
+  .not-found .result-status { color: var(--red); }
+  .result-isbn { font-family: 'Courier New', monospace; font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .date-tag { display: inline-block; background: #fff; border: 1px solid var(--line); border-radius: 3px; font-family: 'Courier New', monospace; font-size: 13px; font-weight: 700; padding: 3px 10px; margin: 2px 4px 2px 0; color: var(--teal-dark); }
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--card); border-radius: 6px; padding: 28px; max-width: 480px; width: 100%; margin: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+  .modal h2 { font-family: Georgia, serif; font-size: 20px; margin-bottom: 8px; }
+  .modal p { font-size: 14px; color: var(--ink-soft); margin-bottom: 18px; line-height: 1.6; }
+  .modal-isbn { font-family: 'Courier New', monospace; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+  .modal-existing { font-size: 13px; color: var(--ink-soft); margin-bottom: 20px; }
+  .modal-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .table-header h2 { font-size: 15px; font-weight: 700; }
+  .record-count { font-size: 12px; background: var(--teal-light); padding: 3px 10px; border-radius: 20px; color: var(--teal-dark); font-weight: 700; font-family: 'Courier New', monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { border-bottom: 2px solid var(--ink); }
+  th { text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); }
+  td { padding: 10px 10px; border-bottom: 1px dashed var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.isbn-cell { font-family: 'Courier New', monospace; font-weight: 700; }
+  td.dates-cell { font-family: 'Courier New', monospace; font-size: 12px; color: var(--teal-dark); line-height: 1.8; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--ink-soft); font-size: 14px; }
+  .empty-state strong { display: block; font-size: 16px; margin-bottom: 4px; color: var(--ink); }
+  .actions-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .db-badge { display:inline-block; font-size:11px; font-weight:700; background: var(--teal-light); color: var(--teal-dark); padding: 2px 8px; border-radius: 3px; margin-left: 8px; vertical-align: middle; }
+  .theme-toggle { background:none; border:none; cursor:pointer; font-size:20px; line-height:1; padding:4px; vertical-align:middle; margin-left:10px; }
+  .header-actions { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:8px; }
+  .storage-meter { font-size:11px; color:var(--ink-soft); }
+  .storage-meter .bar-wrap { width:100px; height:6px; background:var(--line); border-radius:3px; overflow:hidden; display:inline-block; vertical-align:middle; margin-left:6px; }
+  .storage-meter .bar-fill { height:100%; border-radius:3px; background:var(--teal); transition:width 0.3s; }
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:20px; }
+  .stat-card { background:var(--card); border:1px solid var(--line); border-radius:4px; padding:18px 20px; text-align:center; }
+  .stat-card .num { font-size:28px; font-weight:700; font-family:'Courier New',monospace; color:var(--ink); }
+  .stat-card .label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-top:4px; }
+  .date-range-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px; }
+  .date-range-row .field { flex:1; min-width:140px; }
+  .date-range-row .field input { width:100%; }
+  .batch-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .batch-bar .record-count { margin-right:auto; }
+  .batch-date-input { width:160px; }
+  .key-hint { font-size:11px; color:var(--ink-soft); background:var(--card); border:1px solid var(--line); border-radius:3px; padding:1px 6px; font-family:'Courier New',monospace; }
+  .sortable { cursor: pointer; user-select: none; }
+  .sortable:hover { color: var(--ink); }
+  .sortable .sort-indicator { font-size: 10px; margin-left: 4px; opacity: 0.3; }
+  .sortable.sorted-asc .sort-indicator, .sortable.sorted-desc .sort-indicator { opacity: 1; }
+  tr.row-selected { background: var(--teal-light) !important; outline: 2px solid var(--teal); outline-offset: -2px; }
+  .select-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:4px; }
+  .goto-date-btn { font-size:10px; padding:0 4px; cursor:pointer; border:1px solid var(--teal); background:transparent; color:var(--teal); border-radius:2px; line-height:1.4; margin-left:3px; font-family:inherit; }
+  .goto-date-btn:hover { background:var(--teal-light); }
+  .app-nav { display:flex; gap:4px; flex-wrap:wrap; margin-top:10px; font-size:12px; border-top:1px solid var(--line); padding-top:10px; }
+  .app-nav-link { padding:2px 10px; border-radius:3px; text-decoration:none; color:var(--teal); }
+  .app-nav-link:hover { background:var(--teal-light); }
+  .app-nav-link.current { font-weight:700; color:var(--ink); background:var(--teal-light); cursor:default; }
+  [data-theme="dark"] {
+    --paper: #13181C;
+    --ink: #E8EDE9;
+    --ink-soft: #9AA2A8;
+    --card: #1C2328;
+    --teal: #3DBFA5;
+    --teal-dark: #2A9E87;
+    --teal-light: #1A3430;
+    --red: #E74C3C;
+    --red-light: #3A1C1A;
+    --green: #3DBF6A;
+    --green-light: #1A3428;
+    --amber: #D4A843;
+    --amber-light: #3A3018;
+    --line: #2A3238;
+  }
+  [data-theme="dark"] textarea, [data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="date"] { background:#1C2328; color:var(--ink); }
+  [data-theme="dark"] .date-tag { background:var(--card); color:var(--teal); }
+  [data-theme="dark"] .modal-backdrop { background:rgba(0,0,0,0.6); }
+  [data-theme="dark"] .modal { box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>Mustang Transmission Checker <span class="db-badge">IndexedDB</span></h1>
+    <p>Check transmission status, manage records, and track multiple transmission dates per ISBN.</p>
+    <div class="header-actions">
+      <span class="storage-meter" id="storageMeter"></span>
+      <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">??</button>
+    </div>
+    <div class="app-nav"><span class="app-nav-link current">Mustang</span>
+      <a href="Jaguar.html" class="app-nav-link">Jaguar</a>
+      <a href="Nano.html" class="app-nav-link">Nano</a>
+      <a href="Synthbee.html" class="app-nav-link">Synthbee</a></div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('check', this)">Check ISBN</button>
+    <button class="tab" onclick="switchTab('add', this)">Add Records</button>
+    <button class="tab" onclick="switchTab('database', this)">Database</button>
+    <button class="tab" onclick="switchTab('bydate', this)">Browse by Date</button>
+    <button class="tab" onclick="switchTab('stats', this)">Stats</button>
+  </div>
+  <!-- CHECK PANEL -->
+  <div class="panel active" id="panel-check">
+    <div class="card">
+      <div style="margin-bottom:14px;">
+        <span class="field-label">ISBN � one per line, or paste a list</span>
+        <textarea id="searchIsbn" class="mono" placeholder="9781234567890&#10;9780987654321" rows="4"></textarea>
+      </div>
+      <button class="primary" onclick="checkIsbn()">Check</button>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:8px;">Tip: Ctrl+Enter to check quickly.</p>
+      <div id="checkResult" style="margin-top:18px;"></div>
+    </div>
+  </div>
+  <!-- ADD PANEL -->
+  <div class="panel" id="panel-add">
+    <div class="card">
+      <div style="margin-bottom:14px;">
+        <span class="field-label">ISBNs � one per line, or paste a list</span>
+        <textarea id="addIsbn" class="mono" placeholder="9781234567890&#10;9780987654321&#10;9781111111111" rows="5"></textarea>
+      </div>
+      <div style="margin-bottom:18px;">
+        <span class="field-label">Transmitted Date � applies to all ISBNs above</span>
+        <input type="date" id="addDate" style="width:220px;">
+      </div>
+      <button class="primary" onclick="startAdd()">Save Records</button>
+      <p class="notice" id="addNotice"></p>
+    </div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--ink-soft);margin-bottom:14px;">Have ISBNs with different dates? Import from a CSV file (two columns: ISBN, Date).</p>
+      <div class="actions-row">
+        <button class="secondary" onclick="document.getElementById('csvInput').click()">Import from CSV</button>
+        <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="importCSV(this)">
+        <button class="secondary" onclick="downloadTemplate()">Download CSV Template</button>
+      </div>
+      <p class="notice" id="importNotice"></p>
+    </div>
+  </div>
+  <!-- DATABASE PANEL -->
+  <div class="panel" id="panel-database">
+    <div class="card">
+      <div class="table-header">
+        <h2>All Records</h2>
+        <span class="record-count" id="recordCount">0 records</span>
+      </div>
+      <div style="margin-bottom:14px;">
+        <input type="text" id="filterInput" class="mono" placeholder="Search by ISBN prefix..." oninput="renderTable()">
+      </div>
+      <div class="batch-bar" id="batchBar" style="display:none;">
+        <span class="record-count"><span id="batchCount">0</span> selected</span>
+        <input type="date" class="batch-date-input" id="batchDate" value="">
+        <button class="primary" onclick="addDateToSelected()" style="font-size:12px;padding:6px 14px;">Add Date to Selected</button>
+        <button class="secondary" onclick="clearSelection()" style="font-size:12px;padding:6px 14px;">Clear</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:32px;"><input type="checkbox" id="selectAllCheck" onchange="toggleSelectAll()" title="Select all"></th>
+          <th class="sortable" data-sort="isbn" onclick="toggleSort('isbn')" style="width:38%">ISBN <span class="sort-indicator">?</span></th>
+          <th class="sortable" data-sort="date" onclick="toggleSort('date')" style="width:38%">Transmitted Date(s) <span class="sort-indicator">?</span></th>
+          <th></th>
+        </tr></thead>
+        <tbody id="dbTableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <strong>No records yet</strong>Go to "Add Records" to start building your database.
+      </div>
+      <div id="dbPagination" class="pagination" style="display:none;margin-top:14px;text-align:center;"></div>
+    </div>
+    <div class="actions-row">
+      <button class="secondary" onclick="exportCSV()">Export as CSV</button>
+      <button class="secondary" onclick="exportFilteredCSV()">Export Filtered</button>
+      <button class="danger" onclick="clearAll()">Clear All Records</button>
+    </div>
+  </div>
+  <!-- BROWSE BY DATE PANEL -->
+  <div class="panel" id="panel-bydate">
+    <div class="card">
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px;">
+        <div style="flex:1;min-width:180px;">
+          <span class="field-label">Jump to date</span>
+          <input type="date" id="browseDate" oninput="selectBrowseDate()" style="width:100%;">
+        </div>
+        <button class="primary" onclick="exportDateCSV()">Export This Date</button>
+      </div>
+      <div class="date-range-row">
+        <div class="field">
+          <span class="field-label">From</span>
+          <input type="date" id="rangeFrom" onchange="showDateRange()">
+        </div>
+        <div class="field">
+          <span class="field-label">To</span>
+          <input type="date" id="rangeTo" onchange="showDateRange()">
+        </div>
+        <button class="secondary" onclick="clearDateRange()" style="margin-bottom:2px;">Clear</button>
+      </div>
+      <div id="browseResult">
+        <div class="empty-state"><strong>Loading�</strong></div>
+      </div>
+    </div>
+  </div>
+  <!-- STATS PANEL -->
+  <div class="panel" id="panel-stats">
+    <div class="card">
+      <div class="stat-grid" id="statGrid">
+        <div class="stat-card"><div class="num" id="statRecords">�</div><div class="label">Total Records</div></div>
+        <div class="stat-card"><div class="num" id="statDates">�</div><div class="label">Unique Dates</div></div>
+        <div class="stat-card"><div class="num" id="statTransmissions">�</div><div class="label">Total Transmissions</div></div>
+        <div class="stat-card"><div class="num" id="statMonths">�</div><div class="label">Active Months</div></div>
+      </div>
+      <div id="statTopDates" style="margin-top:18px;"></div>
+      <div id="statMonthlyBreakdown" style="margin-top:18px;"></div>
+      <div id="statMultiTransmit" style="margin-top:18px;"></div>
+    </div>
+  </div>
+</div>
+<!-- CONFLICT MODAL -->
+<div class="modal-backdrop" id="conflictModal">
+  <div class="modal">
+    <h2>ISBN Already Exists</h2>
+    <p>This ISBN already has a transmission record. What would you like to do?</p>
+    <div class="modal-isbn" id="conflictIsbn"></div>
+    <div class="modal-existing" id="conflictExisting"></div>
+    <div class="modal-actions">
+      <button class="primary" onclick="resolveConflict('add')">Add New Date</button>
+      <button class="amber" onclick="resolveConflict('overwrite')">Overwrite</button>
+      <button class="secondary" onclick="resolveConflict('skip')">Skip</button>
+      <button class="secondary" onclick="resolveConflict('skipall')">Skip All Remaining</button>
+    </div>
+  </div>
+</div>
+<script>
+
+// =============================================
+//  IndexedDB storage layer
+// =============================================
+const DB_NAME = 'ISBNTransmissionDB';
+const DB_VERSION = 2;
+const STORE = 'isbns';
+const PAGE_SIZE = 50;
+let idb = null;
+let dbPageOffset = 0;
+let browsePageOffset = 0;
+let browseCurrentDate = '';
+let browseCurrentMonth = '';
+let browseDateData = null;
+let sortState = { key: null, dir: 'asc' };
+let selectedIsbns = new Set();
+let lastClickedIndex = -1;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      const tx = req.transaction;
+      if (e.oldVersion < 1) {
+        const store = db.createObjectStore(STORE, { keyPath: 'isbn' });
+        store.createIndex('dates', 'dates.date', { multiEntry: true });
+      }
+      if (e.oldVersion >= 1 && e.oldVersion < 2) {
+        const store = tx.objectStore(STORE);
+        store.createIndex('dates', 'dates.date', { multiEntry: true });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbGet(isbn) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(isbn);
+    req.onsuccess = e => resolve(e.target.result || null);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbPut(record) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).put(record);
+    req.onsuccess = () => resolve();
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbDelete(isbn) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).delete(isbn);
+    req.onsuccess = () => resolve();
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbGetAll() {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbClear() {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).clear();
+    req.onsuccess = () => resolve();
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbCount() {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).count();
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbGetByDate(date, limit, offset) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const index = tx.objectStore(STORE).index('dates');
+    const results = [];
+    let skipped = 0;
+    const req = index.openCursor(IDBKeyRange.only(date));
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (!cursor) { resolve(results); return; }
+      if (skipped < offset) { skipped++; cursor.continue(); return; }
+      if (results.length >= limit) { resolve(results); return; }
+      results.push(cursor.value);
+      cursor.continue();
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbCountByDate(date) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).index('dates').count(IDBKeyRange.only(date));
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbCountDateRange(from, to) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).index('dates').count(IDBKeyRange.bound(from, to, false, false));
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbGetDateRange(from, to, limit, offset) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const index = tx.objectStore(STORE).index('dates');
+    const seen = new Set();
+    const results = [];
+    let skipped = 0;
+    const req = index.openCursor(IDBKeyRange.bound(from, to, false, false));
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (!cursor) { resolve(results); return; }
+      const isbn = cursor.primaryKey;
+      if (seen.has(isbn)) { cursor.continue(); return; }
+      seen.add(isbn);
+      if (skipped < offset) { skipped++; cursor.continue(); return; }
+      if (results.length >= limit) { resolve(results); return; }
+      results.push(cursor.value);
+      cursor.continue();
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function updateStorageMeter() {
+  const el = document.getElementById('storageMeter');
+  try {
+    const estimate = await navigator.storage.estimate();
+    const used = estimate.usage || 0;
+    const quota = estimate.quota || 1;
+    const pct = Math.min(100, Math.round((used / quota) * 100));
+    const fmt = n => n >= 1073741824 ? (n/1073741824).toFixed(1)+'GB' : n >= 1048576 ? (n/1048576).toFixed(1)+'MB' : (n/1024).toFixed(1)+'KB';
+    el.innerHTML = `Storage: ${fmt(used)} / ${fmt(quota)} <span class="bar-wrap"><span class="bar-fill" style="width:${pct}%"></span></span>`;
+  } catch { el.textContent = ''; }
+}
+
+function dbGetAllDates() {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const index = tx.objectStore(STORE).index('dates');
+    const counts = {};
+    const req = index.openKeyCursor();
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor) {
+        counts[cursor.key] = (counts[cursor.key] || 0) + 1;
+        cursor.continue();
+      } else {
+        resolve(Object.entries(counts).sort((a, b) => b[0].localeCompare(a[0])));
+      }
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbGetPaginated(limit, offset, filterPrefix) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    const range = filterPrefix
+      ? IDBKeyRange.bound(filterPrefix, filterPrefix + '\uffff', false, false)
+      : null;
+    const results = [];
+    let skipped = 0;
+    const req = store.openCursor(range);
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (!cursor) { resolve(results); return; }
+      if (skipped < offset) { skipped++; cursor.continue(); return; }
+      if (results.length >= limit) { resolve(results); return; }
+      results.push(cursor.value);
+      cursor.continue();
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbCountPaginated(filterPrefix) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    const range = filterPrefix
+      ? IDBKeyRange.bound(filterPrefix, filterPrefix + '\uffff', false, false)
+      : null;
+    const req = store.count(range);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbPutBatch(records) {
+  return new Promise((resolve, reject) => {
+    const tx = idb.transaction(STORE, 'readwrite');
+    records.forEach(r => tx.objectStore(STORE).put(r));
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+
+// =============================================
+//  Migrate from localStorage if data exists
+// =============================================
+async function migrateFromLocalStorage() {
+  const OLD_KEY = 'isbn_transmission_db_v2';
+  const raw = localStorage.getItem(OLD_KEY);
+  if (!raw) return 0;
+  let old;
+  try { old = JSON.parse(raw); } catch { return 0; }
+  const entries = Object.entries(old);
+  if (!entries.length) return 0;
+  let migrated = 0;
+  for (const [isbn, rec] of entries) {
+    const existing = await dbGet(isbn);
+    if (!existing) {
+      await dbPut({ isbn, dates: rec.dates || [] });
+      migrated++;
+    }
+  }
+  if (migrated > 0) localStorage.removeItem(OLD_KEY);
+  return migrated;
+}
+
+// =============================================
+//  Helpers
+// =============================================
+function normalizeIsbn(s) { return s.replace(/[\s\-]/g, '').toUpperCase(); }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function formatDate(d) { return d || '—'; }
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function isValidIsbn(s) { return /^\d{9}[\dX]$|^\d{13}$/.test(s); }
+function normalizeDate(s) {
+  s = s.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,4})[\/\-\.](\d{1,4})[\/\-\.](\d{1,4})$/);
+  if (!m) return s;
+  const a = m[1], b = m[2], c = m[3];
+  if (a.length === 4) {
+    return a + '-' + b.padStart(2, '0') + '-' + c.padStart(2, '0');
+  }
+  if (c.length === 4) {
+    return c + '-' + a.padStart(2, '0') + '-' + b.padStart(2, '0');
+  }
+  if (a.length <= 2 && b.length <= 2 && c.length <= 2) {
+    return '20' + c + '-' + a.padStart(2, '0') + '-' + b.padStart(2, '0');
+  }
+  return s;
+}
+function parseCSVLine(line) {
+  const result = []; let current = ''; let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') { inQuotes = !inQuotes; }
+    else if (line[i] === ',' && !inQuotes) { result.push(current); current = ''; }
+    else { current += line[i]; }
+  }
+  result.push(current);
+  return result;
+}
+
+// =============================================
+//  Theme
+// =============================================
+function setTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#13181C' : '#F0F2EF';
+  try { localStorage.setItem('isbn_theme', dark ? 'dark' : 'light'); } catch {}
+}
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  setTheme(!isDark);
+}
+
+// =============================================
+//  Init
+// =============================================
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    idb = await openDB();
+    const migrated = await migrateFromLocalStorage();
+    if (migrated > 0) {
+      showGlobalNotice(`✓ Migrated ${migrated} records from old storage to IndexedDB automatically.`);
+    }
+  } catch (err) {
+    showGlobalNotice('⚠ Could not open database: ' + err.message, true);
+  }
+
+  document.getElementById('addDate').value = todayStr();
+  document.getElementById('searchIsbn').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) checkIsbn();
+  });
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.delete-isbn-btn');
+    if (btn) { deleteRecord(btn.dataset.isbn); return; }
+
+    const gotoBtn = e.target.closest('.goto-date-btn');
+    if (gotoBtn) { goToBrowseDate(gotoBtn.dataset.date); return; }
+
+    const row = e.target.closest('tr[data-isbn]');
+    if (!row) return;
+    if (e.target.closest('button, input, a, .row-select')) return;
+
+    const panel = row.closest('.panel');
+    if (!panel) return;
+    if (panel.id !== 'panel-bydate' && panel.id !== 'panel-check') return;
+
+    const isbn = row.dataset.isbn;
+    const rows = [...panel.querySelectorAll('tr[data-isbn]')];
+    const idx = rows.indexOf(row);
+
+    if (e.shiftKey && lastClickedIndex !== -1) {
+      const start = Math.min(lastClickedIndex, idx);
+      const end = Math.max(lastClickedIndex, idx);
+      for (let i = start; i <= end; i++) selectedIsbns.add(rows[i].dataset.isbn);
+    } else if (e.ctrlKey || e.metaKey) {
+      if (selectedIsbns.has(isbn)) selectedIsbns.delete(isbn);
+      else selectedIsbns.add(isbn);
+    } else {
+      selectedIsbns.clear();
+      selectedIsbns.add(isbn);
+    }
+    lastClickedIndex = idx;
+    updateSelectionUI();
+  });
+
+  // Theme
+  const saved = (() => { try { return localStorage.getItem('isbn_theme'); } catch {} })();
+  if (saved) setTheme(saved === 'dark');
+  else setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      if (document.getElementById('panel-database').classList.contains('active')) {
+        e.preventDefault(); document.getElementById('filterInput').focus();
+      }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+      e.preventDefault();
+      const pa = document.querySelector('.panel.active');
+      if (pa && pa.id === 'panel-database') exportCSV();
+    }
+  });
+
+  // Storage meter
+  updateStorageMeter();
+
+  // PWA manifest
+  try {
+    const manifest = {
+      name: 'Mustang Transmission Checker', short_name: 'ISBN Checker',
+      start_url: '.', display: 'standalone',
+      background_color: '#F0F2EF', theme_color: '#F0F2EF',
+      icons: [{ src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="24" fill="%231B6E63"/><text x="96" y="130" text-anchor="middle" font-size="100" font-weight="bold" fill="white">I</text></svg>', sizes: '192x192', type: 'image/svg+xml' }]
+    };
+    document.getElementById('manifestLink').href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type:'application/json'}));
+  } catch {}
+});
+
+let activeGlobalNotice = null;
+function showGlobalNotice(msg, isError = false) {
+  if (activeGlobalNotice) activeGlobalNotice.remove();
+  const el = document.createElement('p');
+  el.textContent = msg;
+  el.style.cssText = `font-size:13px;font-weight:600;margin-bottom:16px;color:${isError ? 'var(--red)' : 'var(--green)'}`;
+  document.querySelector('.tabs').before(el);
+  activeGlobalNotice = el;
+  setTimeout(() => {
+    if (activeGlobalNotice === el) activeGlobalNotice = null;
+    el.remove();
+  }, 6000);
+}
+
+// =============================================
+//  Tabs
+// =============================================
+function switchTab(name, btn) {
+  sortState.key = null; selectedIsbns.clear(); lastClickedIndex = -1;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'database') renderTable();
+  if (name === 'bydate') showAllDates();
+  if (name === 'stats') renderStats();
+}
+
+function goToBrowseDate(date) {
+  sortState.key = null; selectedIsbns.clear(); lastClickedIndex = -1;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-bydate').classList.add('active');
+  const browseTab = [...document.querySelectorAll('.tab')].find(t => t.textContent.trim().includes('Browse'));
+  if (browseTab) browseTab.classList.add('active');
+  document.getElementById('browseDate').value = date;
+  browseByDate(date);
+}
+
+// =============================================
+//  Check
+// =============================================
+async function checkIsbn() {
+  const raw = document.getElementById('searchIsbn').value.trim();
+  const out = document.getElementById('checkResult');
+  if (!raw) { out.innerHTML = ''; return; }
+
+  const isbns = raw.split('\n').map(l => normalizeIsbn(l)).filter(Boolean);
+
+  if (isbns.length === 1) {
+    const isbn = isbns[0];
+    const rec = await dbGet(isbn);
+    if (rec) {
+      const datesHtml = rec.dates.map(d => `<span class="date-tag">${escapeHtml(formatDate(d.date))} <button class="goto-date-btn" data-date="${escapeHtml(d.date)}" title="Browse this date">→</button></span>`).join('');
+      out.innerHTML = `<div class="single-result found">
+        <div class="result-status">✓ Transmitted</div>
+        <div class="result-isbn">${escapeHtml(isbn)}</div>
+        <div style="margin-top:6px;">${datesHtml}</div>
+      </div>`;
+    } else {
+      out.innerHTML = `<div class="single-result not-found">
+        <div class="result-status">✗ Not found</div>
+        <div class="result-isbn">${escapeHtml(isbn)}</div>
+        <div style="font-size:13px;color:var(--red);margin-top:4px;">No transmission record in database.</div>
+      </div>`;
+    }
+    return;
+  }
+
+  // Bulk — fetch all in parallel
+  out.innerHTML = `<div class="loading-bar">Checking ${isbns.length} ISBNs…</div>`;
+  const results = await Promise.all(isbns.map(async isbn => ({ isbn, rec: await dbGet(isbn) })));
+  const found = results.filter(r => r.rec).length;
+  const notFound = results.length - found;
+
+  if (sortState.key) {
+    results.sort((a, b) => {
+      let va, vb;
+      if (sortState.key === 'isbn') { va = a.isbn; vb = b.isbn; }
+      else if (sortState.key === 'status') {
+        va = a.rec ? 'Transmitted' : 'Not found';
+        vb = b.rec ? 'Transmitted' : 'Not found';
+      }
+      else if (sortState.key === 'date') {
+        va = a.rec && a.rec.dates.length ? a.rec.dates.reduce((m, d) => d.date < m ? d.date : m, a.rec.dates[0].date) : '';
+        vb = b.rec && b.rec.dates.length ? b.rec.dates.reduce((m, d) => d.date < m ? d.date : m, b.rec.dates[0].date) : '';
+      }
+      if (va < vb) return sortState.dir === 'asc' ? -1 : 1;
+      if (va > vb) return sortState.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  const cSelCount = selectedIsbns.size;
+
+  let html = `<div style="display:flex;gap:16px;margin-bottom:14px;font-size:13px;font-weight:700;">
+    <span style="color:var(--green);">✓ ${found} transmitted</span>
+    <span style="color:var(--red);">✗ ${notFound} not found</span>
+  </div>
+  <div class="select-bar" id="checkSelectBar" style="display:${cSelCount > 0 ? 'flex' : 'none'};">
+    <span class="record-count">${cSelCount} selected</span>
+    <button class="secondary" onclick="copySelected()" style="font-size:12px;">Copy</button>
+    <button class="secondary" onclick="clearRowSelection()" style="font-size:12px;">Clear</button>
+  </div>
+  <table><thead><tr><th class="sortable" data-sort="isbn" onclick="toggleSort('isbn')">ISBN <span class="sort-indicator">▲</span></th><th class="sortable" data-sort="status" onclick="toggleSort('status')">Status <span class="sort-indicator">▲</span></th><th class="sortable" data-sort="date" onclick="toggleSort('date')">Date(s) <span class="sort-indicator">▲</span></th></tr></thead><tbody>`;
+
+  results.forEach(({ isbn, rec }) => {
+    const sel = selectedIsbns.has(isbn) ? ' row-selected' : '';
+    if (rec) {
+      html += `<tr data-isbn="${escapeHtml(isbn)}" class="${sel}">
+        <td class="isbn-cell">${escapeHtml(isbn)}</td>
+        <td style="color:var(--green);font-weight:700;font-size:12px;">✓ Transmitted</td>
+        <td class="dates-cell">${rec.dates.map(d => `${escapeHtml(formatDate(d.date))} <button class="goto-date-btn" data-date="${escapeHtml(d.date)}" title="Browse this date">→</button>`).join('<br>')}</td>
+      </tr>`;
+    } else {
+      html += `<tr data-isbn="${escapeHtml(isbn)}" class="${sel}">
+        <td class="isbn-cell">${escapeHtml(isbn)}</td>
+        <td style="color:var(--red);font-weight:700;font-size:12px;">✗ Not found</td>
+        <td style="color:var(--ink-soft);">—</td>
+      </tr>`;
+    }
+  });
+  html += `</tbody></table>`;
+  out.innerHTML = html;
+  updateSortIndicators();
+}
+
+// =============================================
+//  Add with conflict handling
+// =============================================
+let addQueue = [];
+let addDateVal = '';
+let addResults = {};
+
+async function startAdd() {
+  const raw = document.getElementById('addIsbn').value.trim();
+  const date = document.getElementById('addDate').value;
+  const notice = document.getElementById('addNotice');
+
+  if (!raw) { showNotice(notice, 'Please enter at least one ISBN.', 'error'); return; }
+  if (!date) { showNotice(notice, 'Please select a transmitted date.', 'error'); return; }
+
+  const dateNormalized = normalizeDate(date);
+  if (!dateNormalized) { showNotice(notice, 'Invalid date format.', 'error'); return; }
+
+  const isbns = raw.split('\n').map(l => normalizeIsbn(l)).filter(Boolean);
+  if (!isbns.length) { showNotice(notice, 'No ISBNs found.', 'error'); return; }
+
+  const validIsbns = isbns.filter(isValidIsbn);
+  if (validIsbns.length !== isbns.length) {
+    const skipped = isbns.length - validIsbns.length;
+    showNotice(notice, `${skipped} invalid ISBN(s) skipped (must be 10 or 13 digits).`, 'error');
+    if (!validIsbns.length) return;
+  }
+
+  addDateVal = dateNormalized;
+  addResults = { added: 0, skipped: 0, overwritten: 0, addedDate: 0 };
+
+  const conflicts = [];
+  for (const isbn of validIsbns) {
+    const existing = await dbGet(isbn);
+    if (existing) {
+      conflicts.push(isbn);
+    } else {
+      await dbPut({ isbn, dates: [{ date: addDateVal, added: todayStr() }] });
+      addResults.added++;
+    }
+  }
+
+  if (!conflicts.length) { finishAdd(); return; }
+  addQueue = conflicts;
+  showNextConflict();
+}
+
+async function showNextConflict() {
+  if (!addQueue.length) { finishAdd(); return; }
+  const isbn = addQueue[0];
+  const rec = await dbGet(isbn);
+  document.getElementById('conflictIsbn').textContent = isbn;
+  document.getElementById('conflictExisting').innerHTML =
+    'Existing date(s): ' + rec.dates.map(d => `<strong>${escapeHtml(formatDate(d.date))}</strong>`).join(', ') +
+    '<br>New date: <strong>' + escapeHtml(formatDate(addDateVal)) + '</strong>';
+  document.getElementById('conflictModal').classList.add('open');
+}
+
+async function resolveConflict(action) {
+  document.getElementById('conflictModal').classList.remove('open');
+
+  if (action === 'skipall') {
+    addResults.skipped += addQueue.length;
+    addQueue = [];
+    finishAdd();
+    return;
+  }
+
+  const isbn = addQueue.shift();
+
+  if (action === 'skip') {
+    addResults.skipped++;
+  } else if (action === 'overwrite') {
+    await dbPut({ isbn, dates: [{ date: addDateVal, added: todayStr() }] });
+    addResults.overwritten++;
+  } else if (action === 'add') {
+    const rec = await dbGet(isbn);
+    const exists = rec.dates.some(d => d.date === addDateVal);
+    if (!exists) {
+      rec.dates.push({ date: addDateVal, added: todayStr() });
+      await dbPut(rec);
+      addResults.addedDate++;
+    } else {
+      addResults.skipped++;
+    }
+  }
+
+  if (addQueue.length > 0) {
+    showNextConflict();
+  } else {
+    finishAdd();
+  }
+}
+
+function finishAdd() {
+  const notice = document.getElementById('addNotice');
+  const r = addResults;
+  const parts = [];
+  if (r.added) parts.push(`${r.added} new record${r.added !== 1 ? 's' : ''} added`);
+  if (r.addedDate) parts.push(`${r.addedDate} got a new date`);
+  if (r.overwritten) parts.push(`${r.overwritten} overwritten`);
+  if (r.skipped) parts.push(`${r.skipped} skipped`);
+  showNotice(notice, '✓ Done — ' + parts.join(', ') + '.', 'success');
+  document.getElementById('addIsbn').value = '';
+}
+
+function showNotice(el, msg, type) {
+  el.textContent = msg;
+  el.className = 'notice ' + type;
+  setTimeout(() => { el.textContent = ''; el.className = 'notice'; }, 6000);
+}
+
+// =============================================
+//  Batch selection
+// =============================================
+function toggleSelectAll() {
+  const checked = document.getElementById('selectAllCheck').checked;
+  document.querySelectorAll('.row-select').forEach(cb => cb.checked = checked);
+  updateBatchBar();
+}
+function updateBatchBar() {
+  const checked = document.querySelectorAll('.row-select:checked').length;
+  document.getElementById('batchBar').style.display = checked ? 'flex' : 'none';
+  document.getElementById('batchCount').textContent = checked;
+  document.getElementById('batchDate').value = todayStr();
+}
+function clearSelection() {
+  document.querySelectorAll('.row-select').forEach(cb => cb.checked = false);
+  document.getElementById('selectAllCheck').checked = false;
+  updateBatchBar();
+}
+async function addDateToSelected() {
+  const date = document.getElementById('batchDate').value;
+  if (!date) { alert('Select a date first.'); return; }
+  const isbns = [];
+  document.querySelectorAll('.row-select:checked').forEach(cb => isbns.push(cb.dataset.isbn));
+  if (!isbns.length) return;
+  const batch = [];
+  for (const isbn of isbns) {
+    const existing = await dbGet(isbn);
+    if (existing) {
+      if (!existing.dates.some(d => d.date === date)) {
+        existing.dates.push({ date, added: todayStr() });
+        batch.push(existing);
+      }
+    } else {
+      batch.push({ isbn, dates: [{ date, added: todayStr() }] });
+    }
+  }
+  if (batch.length) { await dbPutBatch(batch); alert(`Added date to ${batch.length} record(s).`); }
+  else alert('All selected records already have this date.');
+  clearSelection();
+  renderTable(false);
+}
+async function exportFilteredCSV() {
+  const filter = normalizeIsbn(document.getElementById('filterInput').value.trim());
+  const tx = idb.transaction(STORE, 'readonly');
+  const store = tx.objectStore(STORE);
+  const range = filter ? IDBKeyRange.bound(filter, filter + '\uffff', false, false) : null;
+  const rows = ['ISBN,Transmitted Date,Date Added'];
+  let count = 0;
+  await new Promise((resolve, reject) => {
+    const req = store.openCursor(range);
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor) { count++; cursor.value.dates.forEach(d => rows.push(`${cursor.value.isbn},${d.date},${d.added || ''}`)); cursor.continue(); }
+      else resolve();
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+  if (!count) { alert('No records to export.'); return; }
+  triggerDownload('isbn_filtered_export.csv', rows.join('\n'), 'text/csv');
+}
+
+// =============================================
+//  Sortable columns
+// =============================================
+function toggleSort(key) {
+  if (sortState.key === key) {
+    sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortState.key = key;
+    sortState.dir = 'asc';
+  }
+  selectedIsbns.clear();
+  lastClickedIndex = -1;
+  reRenderCurrentPanel();
+}
+
+function updateSortIndicators() {
+  const panel = document.querySelector('.panel.active');
+  if (!panel) return;
+  panel.querySelectorAll('.sortable').forEach(el => {
+    const indicator = el.querySelector('.sort-indicator');
+    if (!indicator) return;
+    el.classList.remove('sorted-asc', 'sorted-desc');
+    if (el.dataset.sort === sortState.key) {
+      el.classList.add(sortState.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+      indicator.textContent = sortState.dir === 'asc' ? '▲' : '▼';
+    } else {
+      indicator.textContent = '▲';
+    }
+  });
+}
+
+function reRenderCurrentPanel() {
+  const panel = document.querySelector('.panel.active');
+  if (!panel) return;
+  if (panel.id === 'panel-database') renderTable();
+  else if (panel.id === 'panel-bydate') { if (browseCurrentDate) browseByDate(browseCurrentDate); else showAllDates(); }
+  else if (panel.id === 'panel-check') checkIsbn();
+}
+
+// =============================================
+//  Row selection (Browse by Date & Check ISBN)
+// =============================================
+function updateSelectionUI() {
+  document.querySelectorAll('tr[data-isbn]').forEach(row => {
+    const isSelected = selectedIsbns.has(row.dataset.isbn);
+    row.classList.toggle('row-selected', isSelected);
+    const cb = row.querySelector('.row-select');
+    if (cb) cb.checked = isSelected;
+  });
+  ['browseSelectBar', 'checkSelectBar'].forEach(id => {
+    const bar = document.getElementById(id);
+    if (bar) {
+      bar.style.display = selectedIsbns.size > 0 ? 'flex' : 'none';
+      const count = bar.querySelector('.record-count');
+      if (count) count.textContent = `${selectedIsbns.size} selected`;
+    }
+  });
+  // Sync select-all checkbox
+  const selAll = document.getElementById('browseSelectAll');
+  if (selAll && document.getElementById('panel-bydate').classList.contains('active')) {
+    const rows = [...document.querySelectorAll('#panel-bydate tr[data-isbn]')];
+    if (rows.length) {
+      const n = rows.filter(r => selectedIsbns.has(r.dataset.isbn)).length;
+      selAll.checked = n === rows.length;
+      selAll.indeterminate = n > 0 && n < rows.length;
+    } else {
+      selAll.checked = false; selAll.indeterminate = false;
+    }
+  }
+  updateSortIndicators();
+}
+
+function clearRowSelection() {
+  selectedIsbns.clear();
+  lastClickedIndex = -1;
+  updateSelectionUI();
+}
+
+function toggleBrowseSelectAll() {
+  const checked = document.getElementById('browseSelectAll').checked;
+  const rows = document.querySelectorAll('#panel-bydate tr[data-isbn]');
+  rows.forEach(row => {
+    if (checked) selectedIsbns.add(row.dataset.isbn);
+    else selectedIsbns.delete(row.dataset.isbn);
+  });
+  updateSelectionUI();
+}
+
+function syncBrowseSelection() {
+  document.querySelectorAll('#panel-bydate .row-select').forEach(cb => {
+    if (cb.checked) selectedIsbns.add(cb.dataset.isbn);
+    else selectedIsbns.delete(cb.dataset.isbn);
+  });
+  updateSelectionUI();
+}
+
+function copySelected() {
+  const isbns = [...selectedIsbns].join('\n');
+  if (!isbns) return;
+  navigator.clipboard.writeText(isbns).then(() => {
+    const bar = document.querySelector('.panel.active .select-bar');
+    if (bar) {
+      const msg = document.createElement('span');
+      msg.textContent = '✓ Copied!';
+      msg.style.cssText = 'font-size:12px;color:var(--green);font-weight:600;';
+      bar.appendChild(msg);
+      setTimeout(() => msg.remove(), 2000);
+    }
+  }).catch(() => alert('Could not copy.'));
+}
+
+async function deleteSelected() {
+  const isbns = [...selectedIsbns];
+  if (!isbns.length) return;
+  if (!confirm(`Delete ${isbns.length} selected record(s)?`)) return;
+  for (const isbn of isbns) await dbDelete(isbn);
+  selectedIsbns.clear();
+  lastClickedIndex = -1;
+  reRenderCurrentPanel();
+}
+
+// =============================================
+//  Database table
+// =============================================
+async function renderTable(resetOffset = true) {
+  if (resetOffset) dbPageOffset = 0;
+  const filter = normalizeIsbn(document.getElementById('filterInput').value.trim());
+  const tbody = document.getElementById('dbTableBody');
+  const emptyState = document.getElementById('emptyState');
+  const countEl = document.getElementById('recordCount');
+  const pagination = document.getElementById('dbPagination');
+
+  const total = await dbCountPaginated(filter || null);
+  countEl.textContent = total === 1 ? '1 record' : `${total} records`;
+
+  if (total === 0) {
+    tbody.innerHTML = '';
+    emptyState.style.display = 'block';
+    pagination.style.display = 'none';
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  if (dbPageOffset >= total) dbPageOffset = Math.max(0, total - PAGE_SIZE);
+
+  const entries = await dbGetPaginated(PAGE_SIZE, dbPageOffset, filter || null);
+
+  if (!entries.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--ink-soft);">No records match that ISBN.</td></tr>`;
+    pagination.style.display = 'none';
+    return;
+  }
+
+  if (sortState.key) {
+    entries.sort((a, b) => {
+      let va, vb;
+      if (sortState.key === 'isbn') { va = a.isbn; vb = b.isbn; }
+      else if (sortState.key === 'date') {
+        va = a.dates.length ? a.dates.reduce((m, d) => d.date < m ? d.date : m, a.dates[0].date) : '';
+        vb = b.dates.length ? b.dates.reduce((m, d) => d.date < m ? d.date : m, b.dates[0].date) : '';
+      }
+      if (va < vb) return sortState.dir === 'asc' ? -1 : 1;
+      if (va > vb) return sortState.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  document.getElementById('selectAllCheck').checked = false;
+
+  tbody.innerHTML = entries.map(r => `
+    <tr>
+      <td><input type="checkbox" class="row-select" data-isbn="${escapeHtml(r.isbn)}" onchange="updateBatchBar()"></td>
+      <td class="isbn-cell">${escapeHtml(r.isbn)}</td>
+      <td class="dates-cell">${r.dates.map(d => `${escapeHtml(formatDate(d.date))} <button class="goto-date-btn" data-date="${escapeHtml(d.date)}" title="Browse this date">→</button>`).join('<br>')}</td>
+      <td><button class="danger delete-isbn-btn" data-isbn="${escapeHtml(r.isbn)}">Delete</button></td>
+    </tr>
+  `).join('');
+  updateBatchBar();
+
+  const pageStart = dbPageOffset + 1;
+  const pageEnd = Math.min(dbPageOffset + PAGE_SIZE, total);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const curPage = Math.floor(dbPageOffset / PAGE_SIZE) + 1;
+  pagination.style.display = 'block';
+  pagination.innerHTML = `
+    <button class="secondary" onclick="dbPageChange(-1)" ${dbPageOffset === 0 ? 'disabled' : ''}>← Prev</button>
+    <span style="font-size:13px;color:var(--ink-soft);margin:0 14px;">${pageStart}–${pageEnd} of ${total} (page ${curPage}/${totalPages})</span>
+    <button class="secondary" onclick="dbPageChange(1)" ${pageEnd >= total ? 'disabled' : ''}>Next →</button>
+  `;
+  updateSortIndicators();
+}
+
+function dbPageChange(delta) {
+  const newOffset = dbPageOffset + delta * PAGE_SIZE;
+  if (newOffset < 0) return;
+  dbPageOffset = newOffset;
+  renderTable(false);
+}
+
+async function deleteRecord(isbn) {
+  if (!confirm(`Delete all records for ${isbn}?`)) return;
+  await dbDelete(isbn);
+  selectedIsbns.delete(isbn);
+  const activePanel = document.querySelector('.panel.active');
+  if (activePanel && activePanel.id === 'panel-bydate') {
+    if (browseCurrentDate) browseByDate(browseCurrentDate);
+    else showAllDates();
+  } else {
+    renderTable();
+  }
+}
+
+async function clearAll() {
+  const count = await dbCount();
+  if (!count) { alert('Database is already empty.'); return; }
+  if (!confirm(`Permanently delete all ${count} records?`)) return;
+  await dbClear();
+  renderTable();
+}
+
+// =============================================
+//  Browse by Date — hierarchical drilldown
+// =============================================
+async function loadDateData() {
+  let entries;
+  try { entries = await dbGetAllDates(); } catch { entries = []; }
+  if (!entries.length) {
+    const all = await dbGetAll();
+    const counts = {};
+    all.forEach(r => r.dates.forEach(d => { counts[d.date] = (counts[d.date] || 0) + 1; }));
+    entries = Object.entries(counts).sort((a, b) => b[0].localeCompare(a[0]));
+  }
+  return entries;
+}
+
+async function showAllDates() {
+  browseCurrentDate = '';
+  browseCurrentMonth = '';
+  document.getElementById('browseDate').value = '';
+  const out = document.getElementById('browseResult');
+  out.innerHTML = `<div class="loading-bar">Loading dates…</div>`;
+  browseDateData = await loadDateData();
+  if (!browseDateData.length) {
+    out.innerHTML = `<div class="empty-state"><strong>No dates yet</strong>Add some records first.</div>`;
+    return;
+  }
+  renderMonths();
+}
+
+function renderMonths() {
+  browseCurrentMonth = '';
+  const out = document.getElementById('browseResult');
+  const months = {};
+  browseDateData.forEach(([date]) => {
+    const m = date.slice(0, 7);
+    months[m] = (months[m] || 0) + 1;
+  });
+  const list = Object.entries(months).sort((a, b) => b[0].localeCompare(a[0]));
+  out.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <span style="font-size:13px;color:var(--ink-soft);">Transmission months</span>
+      <span class="record-count">${list.length} month${list.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">${list.map(([month, count]) => `
+      <div onclick="showDaysInMonth('${escapeHtml(month)}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border:1px solid var(--line);border-radius:4px;background:var(--card);transition:background 0.1s;" onmouseover="this.style.background='var(--teal-light)'" onmouseout="this.style.background='var(--card)'">
+        <span style="font-weight:600;font-family:'Courier New',monospace;font-size:15px;">${escapeHtml(month)}</span>
+        <span class="record-count">${count} date${count !== 1 ? 's' : ''} →</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+function showDaysInMonth(month) {
+  browseCurrentMonth = month;
+  const out = document.getElementById('browseResult');
+  const days = browseDateData
+    .filter(([date]) => date.startsWith(month))
+    .sort((a, b) => b[0].localeCompare(a[0]));
+  out.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <a href="#" onclick="showAllDates();return false;" style="font-size:13px;color:var(--teal);">← All months</a>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <span style="font-size:13px;color:var(--ink-soft);">${escapeHtml(month)}</span>
+      <span class="record-count">${days.length} date${days.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">${days.map(([date, count]) => `
+      <div onclick="browseByDate('${escapeHtml(date)}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border:1px solid var(--line);border-radius:4px;background:var(--card);transition:background 0.1s;" onmouseover="this.style.background='var(--teal-light)'" onmouseout="this.style.background='var(--card)'">
+        <span style="font-weight:600;font-family:'Courier New',monospace;font-size:15px;">${escapeHtml(date)}</span>
+        <span class="record-count">${count} ISBN${count !== 1 ? 's' : ''} →</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+function selectBrowseDate() {
+  const date = document.getElementById('browseDate').value;
+  if (date) { browseCurrentMonth = ''; browseByDate(date); }
+}
+
+async function browseByDate(date) {
+  browsePageOffset = 0;
+  browseCurrentDate = date || '';
+  const out = document.getElementById('browseResult');
+  if (!date) { showAllDates(); return; }
+
+  out.innerHTML = `<div class="loading-bar">Searching…</div>`;
+
+  let total, entries;
+  try {
+    total = await dbCountByDate(date);
+    if (total > 0) entries = await dbGetByDate(date, PAGE_SIZE, browsePageOffset);
+    else entries = [];
+  } catch { total = -1; entries = []; }
+
+  if (total <= 0) {
+    const all = await dbGetAll();
+    const filtered = all.filter(r => r.dates.some(d => d.date === date));
+    total = filtered.length;
+    if (!total) {
+      out.innerHTML = `<div class="single-result not-found" style="display:block;">
+        <div class="result-status">No records</div>
+        <div style="font-size:14px;margin-top:4px;">No ISBNs were transmitted on <strong>${escapeHtml(date)}</strong>.</div>
+      </div>`;
+      return;
+    }
+    if (browsePageOffset >= total) browsePageOffset = Math.max(0, total - PAGE_SIZE);
+    entries = filtered.slice(browsePageOffset, browsePageOffset + PAGE_SIZE);
+  } else {
+    if (browsePageOffset >= total) browsePageOffset = Math.max(0, total - PAGE_SIZE);
+  }
+
+  if (sortState.key && sortState.key === 'isbn') {
+    entries.sort((a, b) => {
+      if (a.isbn < b.isbn) return sortState.dir === 'asc' ? -1 : 1;
+      if (a.isbn > b.isbn) return sortState.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  const backAction = browseCurrentMonth
+    ? `showDaysInMonth('${escapeHtml(browseCurrentMonth)}')`
+    : 'showAllDates()';
+
+  const bSelCount = selectedIsbns.size;
+  const showAllLink = total > PAGE_SIZE;
+
+  out.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <a href="#" onclick="${backAction};return false;" style="font-size:13px;color:var(--teal);">← ${browseCurrentMonth ? 'Back to days' : 'All months'}</a>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:13px;color:var(--ink-soft);">
+        Transmitted on <strong style="color:var(--ink);">${escapeHtml(date)}</strong>
+      </div>
+      <span class="record-count">${total} ISBN${total !== 1 ? 's' : ''}</span>
+      <button class="danger" onclick="deleteAllForDate('${escapeHtml(date)}')" style="font-size:12px;">Delete All</button>
+    </div>
+    <div class="select-bar" id="browseSelectBar" style="display:${bSelCount > 0 ? 'flex' : 'none'};">
+      <span class="record-count">${bSelCount} selected</span>
+      ${showAllLink ? `<a href="#" onclick="selectAllForDate('${escapeHtml(date)}');return false;" style="font-size:12px;color:var(--teal);font-weight:600;margin-left:auto;">Select all ${total} ISBNs →</a>` : ''}
+      <button class="secondary" onclick="copySelected()" style="font-size:12px;">Copy</button>
+      <button class="danger" onclick="deleteSelected()" style="font-size:12px;">Delete Selected</button>
+      <button class="secondary" onclick="clearRowSelection()" style="font-size:12px;">Clear</button>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:32px;"><input type="checkbox" id="browseSelectAll" onchange="toggleBrowseSelectAll()" title="Select all"></th>
+        <th style="width:40px;">#</th>
+        <th class="sortable" data-sort="isbn" onclick="toggleSort('isbn')">ISBN <span class="sort-indicator">▲</span></th>
+        <th></th>
+      </tr></thead>
+      <tbody>${entries.map((rec, i) => {
+        const idx = browsePageOffset + i + 1;
+        const sel = selectedIsbns.has(rec.isbn) ? ' row-selected' : '';
+        return `<tr data-isbn="${escapeHtml(rec.isbn)}" class="${sel}">
+          <td style="width:32px;"><input type="checkbox" class="row-select" data-isbn="${escapeHtml(rec.isbn)}" onchange="syncBrowseSelection()" ${sel ? 'checked' : ''}></td>
+          <td style="color:var(--ink-soft);font-size:12px;width:40px;">${idx}</td>
+          <td class="isbn-cell">${escapeHtml(rec.isbn)}</td>
+          <td><button class="danger delete-isbn-btn" data-isbn="${escapeHtml(rec.isbn)}">Delete</button></td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>
+    <div class="pagination" style="margin-top:14px;text-align:center;">${browsePagination(date, total)}</div>`;
+  updateSortIndicators();
+}
+
+async function selectAllForDate(date) {
+  if (!date) return;
+  let entries;
+  try {
+    const total = await dbCountByDate(date);
+    if (total > 0) entries = await dbGetByDate(date, total, 0);
+    else entries = [];
+  } catch { entries = []; }
+  if (!entries || !entries.length) {
+    const all = await dbGetAll();
+    entries = all.filter(r => r.dates.some(d => d.date === date));
+  }
+  entries.forEach(r => selectedIsbns.add(r.isbn));
+  updateSelectionUI();
+}
+
+async function deleteAllForDate(date) {
+  const total = await dbCountByDate(date);
+  if (!total) return;
+  if (!confirm(`Permanently delete all ${total} ISBN records transmitted on ${date}?`)) return;
+  const tx = idb.transaction(STORE, 'readwrite');
+  const store = tx.objectStore(STORE);
+  const index = store.index('dates');
+  let deleted = 0;
+  await new Promise((resolve, reject) => {
+    const req = index.openCursor(IDBKeyRange.only(date));
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor) { store.delete(cursor.primaryKey); deleted++; cursor.continue(); }
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e.target.error);
+  });
+  browseByDate(date);
+}
+
+function browsePagination(date, total) {
+  const pageEnd = Math.min(browsePageOffset + PAGE_SIZE, total);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const curPage = Math.floor(browsePageOffset / PAGE_SIZE) + 1;
+  return `
+    <button class="secondary" onclick="browsePageChange(-1, '${escapeHtml(date)}')" ${browsePageOffset === 0 ? 'disabled' : ''}>← Prev</button>
+    <span style="font-size:13px;color:var(--ink-soft);margin:0 14px;">${browsePageOffset + 1}–${pageEnd} of ${total} (page ${curPage}/${totalPages})</span>
+    <button class="secondary" onclick="browsePageChange(1, '${escapeHtml(date)}')" ${pageEnd >= total ? 'disabled' : ''}>Next →</button>
+  `;
+}
+
+function browsePageChange(delta, date) {
+  const newOffset = browsePageOffset + delta * PAGE_SIZE;
+  if (newOffset < 0) return;
+  browsePageOffset = newOffset;
+  browseByDate(date);
+}
+
+async function exportDateCSV() {
+  const date = document.getElementById('browseDate').value || browseCurrentDate;
+  if (!date) { alert('Select a date first.'); return; }
+  let isbns = [];
+  try {
+    await new Promise((resolve, reject) => {
+      const tx = idb.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).index('dates').openCursor(IDBKeyRange.only(date));
+      req.onsuccess = e => {
+        const cursor = e.target.result;
+        if (cursor) { isbns.push(cursor.value.isbn); cursor.continue(); }
+        else resolve();
+      };
+      req.onerror = () => reject(new Error('index fail'));
+    });
+  } catch {
+    const all = await dbGetAll();
+    isbns = all.filter(r => r.dates.some(d => d.date === date)).map(r => r.isbn);
+  }
+  if (!isbns.length) { alert('No ISBNs found for that date.'); return; }
+  const csv = 'ISBN,Transmitted Date\n' + isbns.map(i => `${i},${date}`).join('\n');
+  triggerDownload(`isbn_transmitted_${date}.csv`, csv, 'text/csv');
+}
+
+// =============================================
+//  CSV Import / Export
+// =============================================
+async function importCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const notice = document.getElementById('importNotice');
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const lines = e.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+    let added = 0, errors = 0;
+    let batch = [];
+    let processed = 0;
+    const total = lines.length - (lines.length && lines[0].toLowerCase().startsWith('isbn,') ? 1 : 0);
+    for (let i = 0; i < lines.length; i++) {
+      if (i === 0 && lines[i].toLowerCase().startsWith('isbn,')) continue;
+      const parts = parseCSVLine(lines[i]);
+      if (parts.length < 2) { errors++; continue; }
+      const isbn = normalizeIsbn(parts[0]);
+      const date = normalizeDate(parts[1]);
+      if (!isbn || !date || !isValidIsbn(isbn)) { errors++; continue; }
+      const existing = await dbGet(isbn);
+      if (existing) {
+        if (!existing.dates.some(d => d.date === date)) {
+          existing.dates.push({ date, added: todayStr() });
+          batch.push(existing);
+          added++;
+        }
+      } else {
+        batch.push({ isbn, dates: [{ date, added: todayStr() }] });
+        added++;
+      }
+      processed++;
+      if (batch.length >= 500) {
+        notice.textContent = `Importing… ${processed}/${total}`;
+        await dbPutBatch(batch);
+        batch = [];
+      }
+    }
+    if (batch.length) await dbPutBatch(batch);
+    input.value = '';
+    let msg = `✓ Imported ${added} date record${added !== 1 ? 's' : ''}.`;
+    if (errors) msg += ` ${errors} rows skipped (bad format).`;
+    showNotice(notice, msg, 'success');
+  };
+  reader.readAsText(file);
+}
+
+function downloadTemplate() {
+  triggerDownload('isbn_template.csv', 'ISBN,Date\n9781234567890,2024-06-15\n9780987654321,2024-07-01\n', 'text/csv');
+}
+
+async function exportCSV() {
+  const tx = idb.transaction(STORE, 'readonly');
+  const store = tx.objectStore(STORE);
+  const rows = ['ISBN,Transmitted Date,Date Added'];
+  let count = 0;
+  await new Promise((resolve, reject) => {
+    const req = store.openCursor();
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor) {
+        count++;
+        cursor.value.dates.forEach(d => rows.push(`${cursor.value.isbn},${d.date},${d.added || ''}`));
+        cursor.continue();
+      } else resolve();
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+  if (!count) { alert('No records to export.'); return; }
+  triggerDownload('isbn_export.csv', rows.join('\n'), 'text/csv');
+}
+
+function triggerDownload(filename, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename;
+  a.click();
+}
+
+// =============================================
+//  Date range
+// =============================================
+async function showDateRange() {
+  const from = document.getElementById('rangeFrom').value;
+  const to = document.getElementById('rangeTo').value;
+  if (!from || !to) return;
+  browseCurrentMonth = '';
+  browsePageOffset = 0;
+  const out = document.getElementById('browseResult');
+  out.innerHTML = `<div class="loading-bar">Searching…</div>`;
+  const total = await dbCountDateRange(from, to);
+  if (!total) {
+    out.innerHTML = `<div class="single-result not-found" style="display:block;"><div class="result-status">No records</div><div style="font-size:14px;margin-top:4px;">No ISBNs transmitted from <strong>${escapeHtml(from)}</strong> to <strong>${escapeHtml(to)}</strong>.</div></div>`;
+    return;
+  }
+  const entries = await dbGetDateRange(from, to, PAGE_SIZE, 0);
+  if (sortState.key && sortState.key === 'isbn') {
+    entries.sort((a, b) => {
+      if (a.isbn < b.isbn) return sortState.dir === 'asc' ? -1 : 1;
+      if (a.isbn > b.isbn) return sortState.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+  out.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:13px;color:var(--ink-soft);">Range: <strong>${escapeHtml(from)}</strong> → <strong>${escapeHtml(to)}</strong></div>
+      <span class="record-count">${total} ISBN${total !== 1 ? 's' : ''}</span>
+    </div>
+    <table><thead><tr><th style="width:40px;">#</th><th class="sortable" data-sort="isbn" onclick="toggleSort('isbn')">ISBN <span class="sort-indicator">▲</span></th><th></th></tr></thead>
+    <tbody>${entries.map((rec, i) => `<tr data-isbn="${escapeHtml(rec.isbn)}"><td style="color:var(--ink-soft);font-size:12px;width:40px;">${i + 1}</td><td class="isbn-cell">${escapeHtml(rec.isbn)}</td><td><button class="danger delete-isbn-btn" data-isbn="${escapeHtml(rec.isbn)}">Delete</button></td></tr>`).join('')}
+    </tbody></table>`;
+  updateSortIndicators();
+}
+function clearDateRange() {
+  document.getElementById('rangeFrom').value = '';
+  document.getElementById('rangeTo').value = '';
+  showAllDates();
+}
+
+// =============================================
+//  Stats
+// =============================================
+async function renderStats() {
+  try {
+    let allDates;
+    try { allDates = await dbGetAllDates(); } catch { allDates = []; }
+    if (!allDates.length) {
+      const all = await dbGetAll();
+      const counts = {};
+      all.forEach(r => r.dates.forEach(d => { counts[d.date] = (counts[d.date] || 0) + 1; }));
+      allDates = Object.entries(counts).sort((a, b) => b[0].localeCompare(a[0]));
+    }
+    const totalRecords = await dbCount();
+    const totalTransmissions = allDates.reduce((s, [,c]) => s + c, 0);
+    const months = {}; allDates.forEach(([d]) => { const m = d.slice(0,7); months[m] = (months[m] || 0) + 1; });
+    const monthList = Object.entries(months).sort((a, b) => b[0].localeCompare(a[0]));
+
+    document.getElementById('statRecords').textContent = totalRecords.toLocaleString();
+    document.getElementById('statDates').textContent = allDates.length.toLocaleString();
+    document.getElementById('statTransmissions').textContent = totalTransmissions.toLocaleString();
+    document.getElementById('statMonths').textContent = monthList.length.toLocaleString();
+
+    const topDates = allDates.slice(0, 10);
+    document.getElementById('statTopDates').innerHTML = `<h3 style="font-size:14px;margin-bottom:10px;">Top 10 Transmission Dates</h3>
+      <table><thead><tr><th>Date</th><th>ISBNs</th></tr></thead>
+      <tbody>${topDates.map(([d, c]) => `<tr><td class="isbn-cell">${escapeHtml(d)}</td><td style="font-weight:700;">${c}</td></tr>`).join('')}</tbody></table>`;
+
+    document.getElementById('statMonthlyBreakdown').innerHTML = `<h3 style="font-size:14px;margin-bottom:10px;">Monthly Breakdown</h3>
+      <table><thead><tr><th>Month</th><th>Active Days</th></tr></thead>
+      <tbody>${monthList.map(([m, c]) => `<tr><td class="isbn-cell">${escapeHtml(m)}</td><td style="font-weight:700;">${c}</td></tr>`).join('')}</tbody></table>`;
+
+    // Find ISBNs with multiple transmission dates
+    const multi = [];
+    const tx = idb.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    await new Promise((resolve, reject) => {
+      const req = store.openCursor();
+      req.onsuccess = e => {
+        const cursor = e.target.result;
+        if (cursor) {
+          if (cursor.value.dates.length > 1) multi.push({ isbn: cursor.value.isbn, count: cursor.value.dates.length, dates: cursor.value.dates.map(d => d.date) });
+          cursor.continue();
+        } else resolve();
+      };
+      req.onerror = e => reject(e.target.error);
+    });
+    if (multi.length) {
+      multi.sort((a, b) => b.count - a.count || a.isbn.localeCompare(b.isbn));
+      document.getElementById('statMultiTransmit').innerHTML = `<h3 style="font-size:14px;margin-bottom:10px;">ISBNs with Multiple Transmissions <span class="record-count">${multi.length}</span></h3>
+        <table><thead><tr><th>ISBN</th><th>Transmissions</th><th>Dates</th></tr></thead>
+        <tbody>${multi.slice(0, 50).map(r => `<tr><td class="isbn-cell">${escapeHtml(r.isbn)}</td><td style="font-weight:700;">${r.count}</td><td class="dates-cell">${r.dates.map(escapeHtml).join('<br>')}</td></tr>`).join('')}</tbody></table>
+        ${multi.length > 50 ? `<p style="font-size:12px;color:var(--ink-soft);margin-top:8px;">Showing top 50 of ${multi.length}.</p>` : ''}`;
+    } else {
+      document.getElementById('statMultiTransmit').innerHTML = `<p style="font-size:13px;color:var(--ink-soft);margin-top:18px;">No ISBNs with multiple transmission dates found.</p>`;
+    }
+  } catch { /* stats not critical */ }
+}
+
+
+</script>
+</body>
+</html>
