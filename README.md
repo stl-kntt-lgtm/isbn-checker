@@ -1,5 +1,3 @@
-# AGENTS.md
-
 ## Structure
 
 - `index.html` — landing page linking to 4 app files.
