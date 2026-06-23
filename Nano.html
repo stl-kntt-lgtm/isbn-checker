@@ -140,9 +140,23 @@
   [data-theme="dark"] .date-tag { background:var(--card); color:var(--teal); }
   [data-theme="dark"] .modal-backdrop { background:rgba(0,0,0,0.6); }
   [data-theme="dark"] .modal { box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+  #toastContainer { position:fixed; top:16px; right:16px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+  .toast { pointer-events:auto; padding:12px 20px; border-radius:4px; font-size:14px; font-weight:600; box-shadow:0 4px 16px rgba(0,0,0,0.15); animation:toastIn 0.25s ease; max-width:420px; }
+  .toast.info { background:var(--ink); color:var(--paper); }
+  .toast.success { background:var(--green); color:#fff; }
+  .toast.error { background:var(--red); color:#fff; }
+  @keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+  #backupBanner button.secondary { border-color:var(--amber); color:var(--ink); }
+  #backupBanner button.secondary:hover { background:var(--amber); color:#fff; }
+  .isbn-cell { cursor:pointer; }
+  .isbn-cell:hover { text-decoration:underline; }
+  #undoBtn { font-size:14px; padding:4px 10px; border:1px solid var(--line); background:var(--card); color:var(--teal); border-radius:3px; cursor:pointer; }
+  #undoBtn:hover:not(:disabled) { background:var(--teal-light); }
+  #undoBtn:disabled { opacity:0.3; cursor:default; }
 </style>
 </head>
 <body>
+<div id="toastContainer"></div>
 <div class="wrap">
   <div class="header">
     <h1>Nano Transmission Checker <span class="db-badge">IndexedDB</span></h1>
@@ -150,11 +164,17 @@
     <div class="header-actions">
       <span class="storage-meter" id="storageMeter"></span>
       <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">??</button>
+      <button id="undoBtn" onclick="performUndo()" disabled title="No actions to undo">↩</button>
     </div>
     <div class="app-nav"><a href="Mustang.html" class="app-nav-link">Mustang</a>
       <a href="Jaguar.html" class="app-nav-link">Jaguar</a>
       <span class="app-nav-link current">Nano</span>
       <a href="Synthbee.html" class="app-nav-link">Synthbee</a></div>
+    <div id="backupBanner" style="display:none;align-items:center;gap:12px;margin-top:10px;padding:10px 14px;background:var(--amber-light);border:1px solid var(--amber);border-radius:4px;font-size:13px;">
+      <span class="backup-msg"></span>
+      <button class="secondary" style="font-size:12px;padding:4px 12px;" onclick="restoreFromBackup(getLatestBackup())">Restore</button>
+      <button style="font-size:12px;padding:4px 12px;background:none;border:none;cursor:pointer;color:var(--ink-soft);" onclick="hideBackupBanner()">✕</button>
+    </div>
   </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('check', this)">Check ISBN</button>
@@ -167,7 +187,7 @@
   <div class="panel active" id="panel-check">
     <div class="card">
       <div style="margin-bottom:14px;">
-        <span class="field-label">ISBN � one per line, or paste a list</span>
+        <span class="field-label">ISBN � one per line, or paste a list</span>
         <textarea id="searchIsbn" class="mono" placeholder="9781234567890&#10;9780987654321" rows="4"></textarea>
       </div>
       <button class="primary" onclick="checkIsbn()">Check</button>
@@ -179,11 +199,11 @@
   <div class="panel" id="panel-add">
     <div class="card">
       <div style="margin-bottom:14px;">
-        <span class="field-label">ISBNs � one per line, or paste a list</span>
+        <span class="field-label">ISBNs � one per line, or paste a list</span>
         <textarea id="addIsbn" class="mono" placeholder="9781234567890&#10;9780987654321&#10;9781111111111" rows="5"></textarea>
       </div>
       <div style="margin-bottom:18px;">
-        <span class="field-label">Transmitted Date � applies to all ISBNs above</span>
+        <span class="field-label">Transmitted Date � applies to all ISBNs above</span>
         <input type="date" id="addDate" style="width:220px;">
       </div>
       <button class="primary" onclick="startAdd()">Save Records</button>
@@ -207,7 +227,7 @@
         <span class="record-count" id="recordCount">0 records</span>
       </div>
       <div style="margin-bottom:14px;">
-        <input type="text" id="filterInput" class="mono" placeholder="Search by ISBN prefix..." oninput="renderTable()">
+        <input type="text" id="filterInput" class="mono" placeholder="Search by ISBN prefix..." oninput="debouncedRenderTable()">
       </div>
       <div class="batch-bar" id="batchBar" style="display:none;">
         <span class="record-count"><span id="batchCount">0</span> selected</span>
@@ -220,6 +240,7 @@
           <th style="width:32px;"><input type="checkbox" id="selectAllCheck" onchange="toggleSelectAll()" title="Select all"></th>
           <th class="sortable" data-sort="isbn" onclick="toggleSort('isbn')" style="width:38%">ISBN <span class="sort-indicator">?</span></th>
           <th class="sortable" data-sort="date" onclick="toggleSort('date')" style="width:38%">Transmitted Date(s) <span class="sort-indicator">?</span></th>
+          <th style="width:30%">Title</th>
           <th></th>
         </tr></thead>
         <tbody id="dbTableBody"></tbody>
@@ -231,7 +252,8 @@
     </div>
     <div class="actions-row">
       <button class="secondary" onclick="exportCSV()">Export as CSV</button>
-      <button class="secondary" onclick="exportFilteredCSV()">Export Filtered</button>
+      <button class="secondary" onclick="lookupTitles()">Look Up Titles</button>
+      <button class="secondary" onclick="exportAll()">Export All Apps</button>
       <button class="danger" onclick="clearAll()">Clear All Records</button>
     </div>
   </div>
@@ -257,7 +279,7 @@
         <button class="secondary" onclick="clearDateRange()" style="margin-bottom:2px;">Clear</button>
       </div>
       <div id="browseResult">
-        <div class="empty-state"><strong>Loading�</strong></div>
+        <div class="empty-state"><strong>Loading�</strong></div>
       </div>
     </div>
   </div>
@@ -265,12 +287,11 @@
   <div class="panel" id="panel-stats">
     <div class="card">
       <div class="stat-grid" id="statGrid">
-        <div class="stat-card"><div class="num" id="statRecords">�</div><div class="label">Total Records</div></div>
-        <div class="stat-card"><div class="num" id="statDates">�</div><div class="label">Unique Dates</div></div>
-        <div class="stat-card"><div class="num" id="statTransmissions">�</div><div class="label">Total Transmissions</div></div>
-        <div class="stat-card"><div class="num" id="statMonths">�</div><div class="label">Active Months</div></div>
+        <div class="stat-card"><div class="num" id="statRecords">�</div><div class="label" title="Total ISBN records stored in the database">Total Records</div></div>
+        <div class="stat-card"><div class="num" id="statDates">�</div><div class="label" title="Number of unique transmission dates across all records">Unique Dates</div></div>
+        <div class="stat-card"><div class="num" id="statTransmissions">�</div><div class="label" title="Total number of date entries across all records (one ISBN can have multiple dates)">Total Transmissions</div></div>
+        <div class="stat-card"><div class="num" id="statMonths">�</div><div class="label" title="Number of distinct months that have at least one transmission">Active Months</div></div>
       </div>
-      <div id="statTopDates" style="margin-top:18px;"></div>
       <div id="statMonthlyBreakdown" style="margin-top:18px;"></div>
       <div id="statMultiTransmit" style="margin-top:18px;"></div>
     </div>
@@ -296,7 +317,7 @@
 // =============================================
 //  IndexedDB storage layer
 // =============================================
-const DB_NAME = 'ISBNTransmissionDB';
+const DB_NAME = 'NanoDB';
 const DB_VERSION = 2;
 const STORE = 'isbns';
 const PAGE_SIZE = 50;
@@ -309,6 +330,104 @@ let browseDateData = null;
 let sortState = { key: null, dir: 'asc' };
 let selectedIsbns = new Set();
 let lastClickedIndex = -1;
+
+let undoStack = [];
+
+function showToast(msg, type, duration) {
+  if (!type) type = 'info';
+  if (!duration) duration = 3000;
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+function pushUndo(records, description) {
+  if (!records || !records.length) return;
+  undoStack.push({ records: JSON.parse(JSON.stringify(records)), description, ts: Date.now() });
+  if (undoStack.length > 20) undoStack.shift();
+  const btn = document.getElementById('undoBtn');
+  if (btn) { btn.disabled = false; btn.title = 'Undo: ' + description; }
+}
+
+function updateUndoBtn() {
+  const btn = document.getElementById('undoBtn');
+  if (btn) { btn.disabled = !undoStack.length; btn.title = undoStack.length ? 'Undo: ' + undoStack[undoStack.length-1].description : 'No actions to undo'; }
+}
+
+async function performUndo() {
+  if (!undoStack.length) return;
+  const entry = undoStack.pop();
+  for (const { isbn, data } of entry.records) {
+    if (data === null) await dbDelete(isbn);
+    else await dbPut(data);
+  }
+  showToast('↩ Undone: ' + entry.description, 'info');
+  updateUndoBtn();
+  reRenderCurrentPanel();
+}
+
+const BACKUP_KEY = 'transmission_backup';
+
+function getCurrentAppName() { return document.title.replace(' Transmission Checker', ''); }
+
+async function saveBackup() {
+  try {
+    const all = await dbGetAll();
+    const entry = { app: getCurrentAppName(), data: all, ts: Date.now() };
+    let backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]');
+    backups.push(entry);
+    if (backups.length > 10) backups = backups.slice(-10);
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+  } catch {}
+}
+
+function getBackups() {
+  try { return JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); } catch { return []; }
+}
+
+function getLatestBackup() {
+  const backups = getBackups().filter(b => b.app === getCurrentAppName());
+  return backups.length ? backups[backups.length - 1] : null;
+}
+
+function removeBackup(ts) {
+  const backups = getBackups().filter(b => !(b.app === getCurrentAppName() && b.ts === ts));
+  localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+}
+
+async function restoreFromBackup(backup) {
+  if (!backup || !backup.data) return;
+  const count = backup.data.length;
+  if (!confirm(`Restore ${count} record(s) from backup (${new Date(backup.ts).toLocaleString()})?\nCurrent data will be replaced.`)) return;
+  await dbClear();
+  for (const r of backup.data) await dbPut(r, true);
+  removeBackup(backup.ts);
+  showToast(`✓ Restored ${count} records from backup.`, 'success');
+  updateStorageMeter();
+  reRenderCurrentPanel();
+  hideBackupBanner();
+}
+
+function showBackupBanner() {
+  const latest = getLatestBackup();
+  if (!latest) return;
+  const bar = document.getElementById('backupBanner');
+  if (!bar) return;
+  const count = latest.data ? latest.data.length : 0;
+  if (!count) { bar.style.display = 'none'; return; }
+  if (sessionStorage.getItem('dismissed_backup_' + latest.ts) === '1') return;
+  bar.style.display = 'flex';
+  bar.querySelector('.backup-msg').textContent = `Backup available: ${count} record(s) for ${getCurrentAppName()} from ${new Date(latest.ts).toLocaleString()}`;
+}
+
+function hideBackupBanner() {
+  const latest = getLatestBackup();
+  const bar = document.getElementById('backupBanner');
+  if (bar) bar.style.display = 'none';
+  if (latest) sessionStorage.setItem('dismissed_backup_' + latest.ts, '1');
+}
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -339,11 +458,11 @@ function dbGet(isbn) {
   });
 }
 
-function dbPut(record) {
+function dbPut(record, skipBackup) {
   return new Promise((resolve, reject) => {
     const tx = idb.transaction(STORE, 'readwrite');
     const req = tx.objectStore(STORE).put(record);
-    req.onsuccess = () => resolve();
+    req.onsuccess = () => { if (!skipBackup) saveBackup(); updateStorageMeter(); resolve(); };
     req.onerror = e => reject(e.target.error);
   });
 }
@@ -352,7 +471,7 @@ function dbDelete(isbn) {
   return new Promise((resolve, reject) => {
     const tx = idb.transaction(STORE, 'readwrite');
     const req = tx.objectStore(STORE).delete(isbn);
-    req.onsuccess = () => resolve();
+req.onsuccess = () => { saveBackup(); updateStorageMeter(); resolve(); };
     req.onerror = e => reject(e.target.error);
   });
 }
@@ -370,7 +489,7 @@ function dbClear() {
   return new Promise((resolve, reject) => {
     const tx = idb.transaction(STORE, 'readwrite');
     const req = tx.objectStore(STORE).clear();
-    req.onsuccess = () => resolve();
+    req.onsuccess = () => { saveBackup(); updateStorageMeter(); resolve(); };
     req.onerror = e => reject(e.target.error);
   });
 }
@@ -514,7 +633,7 @@ function dbPutBatch(records) {
   return new Promise((resolve, reject) => {
     const tx = idb.transaction(STORE, 'readwrite');
     records.forEach(r => tx.objectStore(STORE).put(r));
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = () => { saveBackup(); updateStorageMeter(); resolve(); };
     tx.onerror = e => reject(e.target.error);
   });
 }
@@ -550,6 +669,8 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 function formatDate(d) { return d || '—'; }
 function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function isValidIsbn(s) { return /^\d{9}[\dX]$|^\d{13}$/.test(s); }
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+const debouncedRenderTable = debounce(() => renderTable(true), 250);
 function normalizeDate(s) {
   s = s.trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -560,7 +681,9 @@ function normalizeDate(s) {
     return a + '-' + b.padStart(2, '0') + '-' + c.padStart(2, '0');
   }
   if (c.length === 4) {
-    return c + '-' + a.padStart(2, '0') + '-' + b.padStart(2, '0');
+    if (Number(a) > 12) return c + '-' + b.padStart(2, '0') + '-' + a.padStart(2, '0'); // DD/MM/YYYY
+    if (Number(b) > 12) return c + '-' + a.padStart(2, '0') + '-' + b.padStart(2, '0'); // MM/DD/YYYY
+    return c + '-' + a.padStart(2, '0') + '-' + b.padStart(2, '0'); // ambiguous, assume MM/DD/YYYY
   }
   if (a.length <= 2 && b.length <= 2 && c.length <= 2) {
     return '20' + c + '-' + a.padStart(2, '0') + '-' + b.padStart(2, '0');
@@ -606,6 +729,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     showGlobalNotice('⚠ Could not open database: ' + err.message, true);
   }
 
+  showBackupBanner();
+
   document.getElementById('addDate').value = todayStr();
   document.getElementById('searchIsbn').addEventListener('keydown', e => {
     if (e.key === 'Enter' && e.ctrlKey) checkIsbn();
@@ -616,6 +741,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const gotoBtn = e.target.closest('.goto-date-btn');
     if (gotoBtn) { goToBrowseDate(gotoBtn.dataset.date); return; }
+
+    const copyCell = e.target.closest('.isbn-cell');
+    if (copyCell && !e.target.closest('button')) {
+      const txt = copyCell.textContent.trim();
+      if (txt && isValidIsbn(normalizeIsbn(txt))) {
+        navigator.clipboard.writeText(txt).then(() => showToast('✓ Copied: ' + txt, 'success', 1500)).catch(() => {});
+        return;
+      }
+    }
 
     const row = e.target.closest('tr[data-isbn]');
     if (!row) return;
@@ -750,6 +884,7 @@ async function checkIsbn() {
 
   // Bulk — fetch all in parallel
   out.innerHTML = `<div class="loading-bar">Checking ${isbns.length} ISBNs…</div>`;
+  window._lastCheckIsbns = isbns;
   const results = await Promise.all(isbns.map(async isbn => ({ isbn, rec: await dbGet(isbn) })));
   const found = results.filter(r => r.rec).length;
   const notFound = results.length - found;
@@ -777,25 +912,29 @@ async function checkIsbn() {
   let html = `<div style="display:flex;gap:16px;margin-bottom:14px;font-size:13px;font-weight:700;">
     <span style="color:var(--green);">✓ ${found} transmitted</span>
     <span style="color:var(--red);">✗ ${notFound} not found</span>
+    <span style="flex:1;"></span>
+    <button class="secondary" onclick="lookupTitles(window._lastCheckIsbns)" style="font-size:12px;">Look Up Titles</button>
   </div>
   <div class="select-bar" id="checkSelectBar" style="display:${cSelCount > 0 ? 'flex' : 'none'};">
     <span class="record-count">${cSelCount} selected</span>
     <button class="secondary" onclick="copySelected()" style="font-size:12px;">Copy</button>
     <button class="secondary" onclick="clearRowSelection()" style="font-size:12px;">Clear</button>
   </div>
-  <table><thead><tr><th class="sortable" data-sort="isbn" onclick="toggleSort('isbn')">ISBN <span class="sort-indicator">▲</span></th><th class="sortable" data-sort="status" onclick="toggleSort('status')">Status <span class="sort-indicator">▲</span></th><th class="sortable" data-sort="date" onclick="toggleSort('date')">Date(s) <span class="sort-indicator">▲</span></th></tr></thead><tbody>`;
+  <table><thead><tr><th class="sortable" data-sort="isbn" onclick="toggleSort('isbn')">ISBN <span class="sort-indicator">▲</span></th><th>Title</th><th class="sortable" data-sort="status" onclick="toggleSort('status')">Status <span class="sort-indicator">▲</span></th><th class="sortable" data-sort="date" onclick="toggleSort('date')">Date(s) <span class="sort-indicator">▲</span></th></tr></thead><tbody>`;
 
   results.forEach(({ isbn, rec }) => {
     const sel = selectedIsbns.has(isbn) ? ' row-selected' : '';
     if (rec) {
       html += `<tr data-isbn="${escapeHtml(isbn)}" class="${sel}">
         <td class="isbn-cell">${escapeHtml(isbn)}</td>
+        <td style="font-size:12px;color:var(--ink-soft);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(rec.title || '')}</td>
         <td style="color:var(--green);font-weight:700;font-size:12px;">✓ Transmitted</td>
         <td class="dates-cell">${rec.dates.map(d => `${escapeHtml(formatDate(d.date))} <button class="goto-date-btn" data-date="${escapeHtml(d.date)}" title="Browse this date">→</button>`).join('<br>')}</td>
       </tr>`;
     } else {
       html += `<tr data-isbn="${escapeHtml(isbn)}" class="${sel}">
         <td class="isbn-cell">${escapeHtml(isbn)}</td>
+        <td style="font-size:12px;color:var(--ink-soft);"></td>
         <td style="color:var(--red);font-weight:700;font-size:12px;">✗ Not found</td>
         <td style="color:var(--ink-soft);">—</td>
       </tr>`;
@@ -838,6 +977,7 @@ async function startAdd() {
   addResults = { added: 0, skipped: 0, overwritten: 0, addedDate: 0 };
 
   const conflicts = [];
+  const newIsbns = [];
   for (const isbn of validIsbns) {
     const existing = await dbGet(isbn);
     if (existing) {
@@ -845,8 +985,10 @@ async function startAdd() {
     } else {
       await dbPut({ isbn, dates: [{ date: addDateVal, added: todayStr() }] });
       addResults.added++;
+      newIsbns.push(isbn);
     }
   }
+  if (newIsbns.length) pushUndo(newIsbns.map(i => ({ isbn: i, data: null })), 'Add ' + newIsbns.length + ' records');
 
   if (!conflicts.length) { finishAdd(); return; }
   addQueue = conflicts;
@@ -879,12 +1021,15 @@ async function resolveConflict(action) {
   if (action === 'skip') {
     addResults.skipped++;
   } else if (action === 'overwrite') {
+    const oldRec = await dbGet(isbn);
+    if (oldRec) pushUndo([{ isbn, data: oldRec }], 'Overwrite record');
     await dbPut({ isbn, dates: [{ date: addDateVal, added: todayStr() }] });
     addResults.overwritten++;
   } else if (action === 'add') {
     const rec = await dbGet(isbn);
     const exists = rec.dates.some(d => d.date === addDateVal);
     if (!exists) {
+      pushUndo([{ isbn, data: JSON.parse(JSON.stringify(rec)) }], 'Add date to record');
       rec.dates.push({ date: addDateVal, added: todayStr() });
       await dbPut(rec);
       addResults.addedDate++;
@@ -930,7 +1075,7 @@ function updateBatchBar() {
   const checked = document.querySelectorAll('.row-select:checked').length;
   document.getElementById('batchBar').style.display = checked ? 'flex' : 'none';
   document.getElementById('batchCount').textContent = checked;
-  document.getElementById('batchDate').value = todayStr();
+  if (!document.getElementById('batchDate').value) document.getElementById('batchDate').value = todayStr();
 }
 function clearSelection() {
   document.querySelectorAll('.row-select').forEach(cb => cb.checked = false);
@@ -939,13 +1084,12 @@ function clearSelection() {
 }
 async function addDateToSelected() {
   const date = document.getElementById('batchDate').value;
-  if (!date) { alert('Select a date first.'); return; }
-  const isbns = [];
-  document.querySelectorAll('.row-select:checked').forEach(cb => isbns.push(cb.dataset.isbn));
-  if (!isbns.length) return;
+  if (!date) { showToast('Select a date first.', 'error'); return; }
+  const oldRecords = [];
   const batch = [];
   for (const isbn of isbns) {
     const existing = await dbGet(isbn);
+    oldRecords.push({ isbn, data: existing ? JSON.parse(JSON.stringify(existing)) : null });
     if (existing) {
       if (!existing.dates.some(d => d.date === date)) {
         existing.dates.push({ date, added: todayStr() });
@@ -955,30 +1099,13 @@ async function addDateToSelected() {
       batch.push({ isbn, dates: [{ date, added: todayStr() }] });
     }
   }
-  if (batch.length) { await dbPutBatch(batch); alert(`Added date to ${batch.length} record(s).`); }
-  else alert('All selected records already have this date.');
+  if (batch.length) { pushUndo(oldRecords, 'Add date to ' + batch.length + ' records'); await dbPutBatch(batch); showToast(`Added date to ${batch.length} record(s).`, 'success'); }
+  else showToast('All selected records already have this date.', 'info');
   clearSelection();
   renderTable(false);
 }
-async function exportFilteredCSV() {
-  const filter = normalizeIsbn(document.getElementById('filterInput').value.trim());
-  const tx = idb.transaction(STORE, 'readonly');
-  const store = tx.objectStore(STORE);
-  const range = filter ? IDBKeyRange.bound(filter, filter + '\uffff', false, false) : null;
-  const rows = ['ISBN,Transmitted Date,Date Added'];
-  let count = 0;
-  await new Promise((resolve, reject) => {
-    const req = store.openCursor(range);
-    req.onsuccess = e => {
-      const cursor = e.target.result;
-      if (cursor) { count++; cursor.value.dates.forEach(d => rows.push(`${cursor.value.isbn},${d.date},${d.added || ''}`)); cursor.continue(); }
-      else resolve();
-    };
-    req.onerror = e => reject(e.target.error);
-  });
-  if (!count) { alert('No records to export.'); return; }
-  triggerDownload('isbn_filtered_export.csv', rows.join('\n'), 'text/csv');
-}
+
+
 
 // =============================================
 //  Sortable columns
@@ -1088,13 +1215,16 @@ function copySelected() {
       bar.appendChild(msg);
       setTimeout(() => msg.remove(), 2000);
     }
-  }).catch(() => alert('Could not copy.'));
+  }).catch(() => showToast('Could not copy.', 'error'));
 }
 
 async function deleteSelected() {
   const isbns = [...selectedIsbns];
   if (!isbns.length) return;
   if (!confirm(`Delete ${isbns.length} selected record(s)?`)) return;
+  const records = [];
+  for (const isbn of isbns) { const r = await dbGet(isbn); if (r) records.push({ isbn, data: r }); }
+  if (records.length) pushUndo(records, 'Delete ' + records.length + ' records');
   for (const isbn of isbns) await dbDelete(isbn);
   selectedIsbns.clear();
   lastClickedIndex = -1;
@@ -1128,7 +1258,7 @@ async function renderTable(resetOffset = true) {
   const entries = await dbGetPaginated(PAGE_SIZE, dbPageOffset, filter || null);
 
   if (!entries.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--ink-soft);">No records match that ISBN.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ink-soft);">No records match that ISBN.</td></tr>`;
     pagination.style.display = 'none';
     return;
   }
@@ -1154,6 +1284,7 @@ async function renderTable(resetOffset = true) {
       <td><input type="checkbox" class="row-select" data-isbn="${escapeHtml(r.isbn)}" onchange="updateBatchBar()"></td>
       <td class="isbn-cell">${escapeHtml(r.isbn)}</td>
       <td class="dates-cell">${r.dates.map(d => `${escapeHtml(formatDate(d.date))} <button class="goto-date-btn" data-date="${escapeHtml(d.date)}" title="Browse this date">→</button>`).join('<br>')}</td>
+      <td style="font-size:12px;color:var(--ink-soft);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.title || '')}</td>
       <td><button class="danger delete-isbn-btn" data-isbn="${escapeHtml(r.isbn)}">Delete</button></td>
     </tr>
   `).join('');
@@ -1181,6 +1312,8 @@ function dbPageChange(delta) {
 
 async function deleteRecord(isbn) {
   if (!confirm(`Delete all records for ${isbn}?`)) return;
+  const rec = await dbGet(isbn);
+  if (rec) pushUndo([{ isbn, data: rec }], 'Delete record');
   await dbDelete(isbn);
   selectedIsbns.delete(isbn);
   const activePanel = document.querySelector('.panel.active');
@@ -1194,9 +1327,12 @@ async function deleteRecord(isbn) {
 
 async function clearAll() {
   const count = await dbCount();
-  if (!count) { alert('Database is already empty.'); return; }
+  if (!count) { showToast('Database is already empty.', 'info'); return; }
   if (!confirm(`Permanently delete all ${count} records?`)) return;
+  const all = await dbGetAll();
+  pushUndo(all.map(r => ({ isbn: r.isbn, data: r })), 'Clear all records');
   await dbClear();
+  showToast('All records cleared.', 'info');
   renderTable();
 }
 
@@ -1335,6 +1471,7 @@ async function browseByDate(date) {
       </div>
       <span class="record-count">${total} ISBN${total !== 1 ? 's' : ''}</span>
       <button class="danger" onclick="deleteAllForDate('${escapeHtml(date)}')" style="font-size:12px;">Delete All</button>
+      <button class="secondary" onclick="lookupTitles()" style="font-size:12px;">Look Up Titles</button>
     </div>
     <div class="select-bar" id="browseSelectBar" style="display:${bSelCount > 0 ? 'flex' : 'none'};">
       <span class="record-count">${bSelCount} selected</span>
@@ -1348,6 +1485,7 @@ async function browseByDate(date) {
         <th style="width:32px;"><input type="checkbox" id="browseSelectAll" onchange="toggleBrowseSelectAll()" title="Select all"></th>
         <th style="width:40px;">#</th>
         <th class="sortable" data-sort="isbn" onclick="toggleSort('isbn')">ISBN <span class="sort-indicator">▲</span></th>
+        <th>Title</th>
         <th></th>
       </tr></thead>
       <tbody>${entries.map((rec, i) => {
@@ -1357,6 +1495,7 @@ async function browseByDate(date) {
           <td style="width:32px;"><input type="checkbox" class="row-select" data-isbn="${escapeHtml(rec.isbn)}" onchange="syncBrowseSelection()" ${sel ? 'checked' : ''}></td>
           <td style="color:var(--ink-soft);font-size:12px;width:40px;">${idx}</td>
           <td class="isbn-cell">${escapeHtml(rec.isbn)}</td>
+          <td style="font-size:12px;color:var(--ink-soft);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(rec.title || '')}</td>
           <td><button class="danger delete-isbn-btn" data-isbn="${escapeHtml(rec.isbn)}">Delete</button></td>
         </tr>`;
       }).join('')}
@@ -1386,6 +1525,8 @@ async function deleteAllForDate(date) {
   const total = await dbCountByDate(date);
   if (!total) return;
   if (!confirm(`Permanently delete all ${total} ISBN records transmitted on ${date}?`)) return;
+  const toDelete = await dbGetByDate(date, total, 0);
+  if (toDelete.length) pushUndo(toDelete.map(r => ({ isbn: r.isbn, data: r })), 'Delete ' + toDelete.length + ' records for ' + date);
   const tx = idb.transaction(STORE, 'readwrite');
   const store = tx.objectStore(STORE);
   const index = store.index('dates');
@@ -1399,6 +1540,8 @@ async function deleteAllForDate(date) {
     tx.oncomplete = () => resolve();
     tx.onerror = e => reject(e.target.error);
   });
+  saveBackup();
+  updateStorageMeter();
   browseByDate(date);
 }
 
@@ -1422,7 +1565,7 @@ function browsePageChange(delta, date) {
 
 async function exportDateCSV() {
   const date = document.getElementById('browseDate').value || browseCurrentDate;
-  if (!date) { alert('Select a date first.'); return; }
+  if (!date) { showToast('Select a date first.', 'error'); return; }
   let isbns = [];
   try {
     await new Promise((resolve, reject) => {
@@ -1439,7 +1582,7 @@ async function exportDateCSV() {
     const all = await dbGetAll();
     isbns = all.filter(r => r.dates.some(d => d.date === date)).map(r => r.isbn);
   }
-  if (!isbns.length) { alert('No ISBNs found for that date.'); return; }
+  if (!isbns.length) { showToast('No ISBNs found for that date.', 'error'); return; }
   const csv = 'ISBN,Transmitted Date\n' + isbns.map(i => `${i},${date}`).join('\n');
   triggerDownload(`isbn_transmitted_${date}.csv`, csv, 'text/csv');
 }
@@ -1447,6 +1590,28 @@ async function exportDateCSV() {
 // =============================================
 //  CSV Import / Export
 // =============================================
+function getFromAppDB(appName, isbn) {
+  return new Promise(async (resolve, reject) => {
+    let db;
+    try { db = await openNamedDB(appName + 'DB'); } catch { resolve(null); return; }
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(isbn);
+    req.onsuccess = () => { db.close(); resolve(req.result); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+function putInAppDB(appName, record) {
+  return new Promise(async (resolve, reject) => {
+    let db;
+    try { db = await openNamedDB(appName + 'DB'); } catch { resolve(); return; }
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).put(record);
+    req.onsuccess = () => { db.close(); resolve(); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
 async function importCSV(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1457,24 +1622,61 @@ async function importCSV(input) {
     let added = 0, errors = 0;
     let batch = [];
     let processed = 0;
-    const total = lines.length - (lines.length && lines[0].toLowerCase().startsWith('isbn,') ? 1 : 0);
+    const oldRecords = [];
+    const isExportFormat = lines.length && lines[0].toLowerCase().startsWith('app,');
+    const total = lines.length - (lines.length && lines[0].toLowerCase().match(/^(app,|isbn,)/) ? 1 : 0);
+    const currentApp = getCurrentAppName();
     for (let i = 0; i < lines.length; i++) {
-      if (i === 0 && lines[i].toLowerCase().startsWith('isbn,')) continue;
+      if (i === 0 && lines[i].toLowerCase().match(/^(app,|isbn,)/)) continue;
       const parts = parseCSVLine(lines[i]);
-      if (parts.length < 2) { errors++; continue; }
-      const isbn = normalizeIsbn(parts[0]);
-      const date = normalizeDate(parts[1]);
+      if (parts.length < (isExportFormat ? 3 : 2)) { errors++; continue; }
+      let appName, isbn, date;
+      if (isExportFormat) {
+        appName = parts[0].trim();
+        const validApps = ['Mustang', 'Jaguar', 'Nano', 'Synthbee'];
+        if (!validApps.includes(appName)) { errors++; continue; }
+        isbn = normalizeIsbn(parts[1]);
+        date = normalizeDate(parts[2]);
+        if (!isbn || !date || !isValidIsbn(isbn)) {
+          isbn = normalizeIsbn(parts[2]);
+          date = normalizeDate(parts[1]);
+        }
+      } else {
+        appName = currentApp;
+        isbn = normalizeIsbn(parts[0]);
+        date = normalizeDate(parts[1]);
+        if (!isbn || !date || !isValidIsbn(isbn)) {
+          isbn = normalizeIsbn(parts[1]);
+          date = normalizeDate(parts[0]);
+        }
+      }
       if (!isbn || !date || !isValidIsbn(isbn)) { errors++; continue; }
-      const existing = await dbGet(isbn);
-      if (existing) {
-        if (!existing.dates.some(d => d.date === date)) {
-          existing.dates.push({ date, added: todayStr() });
-          batch.push(existing);
+      if (appName === currentApp) {
+        const existing = await dbGet(isbn);
+        if (existing) {
+          if (!existing.dates.some(d => d.date === date)) {
+            oldRecords.push({ isbn, data: JSON.parse(JSON.stringify(existing)) });
+            existing.dates.push({ date, added: todayStr() });
+            batch.push(existing);
+            added++;
+          }
+        } else {
+          oldRecords.push({ isbn, data: null });
+          batch.push({ isbn, dates: [{ date, added: todayStr() }] });
           added++;
         }
       } else {
-        batch.push({ isbn, dates: [{ date, added: todayStr() }] });
-        added++;
+        const existing = await getFromAppDB(appName, isbn);
+        if (existing) {
+          if (!existing.dates.some(d => d.date === date)) {
+            existing.dates.push({ date, added: todayStr() });
+            await putInAppDB(appName, existing);
+            added++;
+          }
+        } else {
+          await putInAppDB(appName, { isbn, dates: [{ date, added: todayStr() }] });
+          added++;
+        }
       }
       processed++;
       if (batch.length >= 500) {
@@ -1484,6 +1686,7 @@ async function importCSV(input) {
       }
     }
     if (batch.length) await dbPutBatch(batch);
+    if (oldRecords.length) pushUndo(oldRecords, 'Import ' + oldRecords.length + ' records');
     input.value = '';
     let msg = `✓ Imported ${added} date record${added !== 1 ? 's' : ''}.`;
     if (errors) msg += ` ${errors} rows skipped (bad format).`;
@@ -1507,13 +1710,13 @@ async function exportCSV() {
       const cursor = e.target.result;
       if (cursor) {
         count++;
-        cursor.value.dates.forEach(d => rows.push(`${cursor.value.isbn},${d.date},${d.added || ''}`));
+        cursor.value.dates.forEach(d => rows.push(`${cursor.value.isbn},${toISODate(d.date)},${d.added || ''}`));
         cursor.continue();
       } else resolve();
     };
     req.onerror = e => reject(e.target.error);
   });
-  if (!count) { alert('No records to export.'); return; }
+  if (!count) { showToast('No records to export.', 'error'); return; }
   triggerDownload('isbn_export.csv', rows.join('\n'), 'text/csv');
 }
 
@@ -1522,6 +1725,122 @@ function triggerDownload(filename, content, type) {
   a.href = URL.createObjectURL(new Blob([content], { type }));
   a.download = filename;
   a.click();
+}
+
+function toISODate(s) {
+  s = s.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-').map(Number);
+    if (m >= 1 && m <= 12) return s;
+    if (d >= 1 && d <= 12) return `${y}-${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}`;
+    return s;
+  }
+  let m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (m) {
+    let a = m[1].padStart(2,'0'), b = m[2].padStart(2,'0'), c = m[3];
+    if (c.length === 2) c = '20' + c;
+    if (a > 12) return `${c}-${b}-${a}`;
+    if (b > 12) return `${c}-${a}-${b}`;
+    return `${c}-${a}-${b}`;
+  }
+  return s;
+}
+
+function openNamedDB(name) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(name, DB_VERSION);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function lookupTitles(isbns) {
+  let todo;
+  if (isbns && isbns.length) {
+    todo = [];
+    for (const isbn of isbns) {
+      const rec = await dbGet(isbn);
+      if (rec && !rec.title) todo.push(rec);
+      else if (!rec) todo.push({ isbn, dates: [] });
+    }
+    if (!todo.length) { showToast('All checked ISBNs already have titles.', 'info'); return; }
+  } else if (window._lastCheckIsbns) {
+    isbns = window._lastCheckIsbns;
+    todo = [];
+    for (const isbn of isbns) {
+      const rec = await dbGet(isbn);
+      if (rec && !rec.title) todo.push(rec);
+      else if (!rec) todo.push({ isbn, dates: [] });
+    }
+    if (!todo.length) { showToast('All checked ISBNs already have titles.', 'info'); return; }
+  } else {
+    const activePanel = document.querySelector('.panel.active');
+    if (activePanel && activePanel.id === 'panel-bydate' && browseCurrentDate) {
+      let entries;
+      try {
+        const total = await dbCountByDate(browseCurrentDate);
+        if (total > 0) entries = await dbGetByDate(browseCurrentDate, total, 0);
+        else entries = [];
+      } catch {
+        const all = await dbGetAll();
+        entries = all.filter(r => r.dates.some(d => d.date === browseCurrentDate));
+      }
+      todo = entries.filter(r => !r.title);
+      if (!todo.length) { showToast('All ISBNs for this date already have titles.', 'info'); return; }
+    } else {
+      const all = await dbGetAll();
+      todo = all.filter(r => !r.title);
+      if (!todo.length) { showToast('All records already have titles.', 'info'); return; }
+    }
+  }
+  const btn = document.querySelector('[onclick*="lookupTitles"]');
+  if (btn) btn.disabled = true;
+  let found = 0;
+  for (let i = 0; i < todo.length; i += 10) {
+    const batch = todo.slice(i, i + 10);
+    const bibkeys = batch.map(r => 'ISBN:' + r.isbn).join(',');
+    try {
+      const res = await fetch(`https://openlibrary.org/api/books?bibkeys=${bibkeys}&format=json&jscmd=data`);
+      const data = await res.json();
+      for (const r of batch) {
+        const key = 'ISBN:' + r.isbn;
+        if (data[key] && (data[key].title || (data[key].details && data[key].details.title))) {
+          r.title = data[key].title || data[key].details.title;
+          await dbPut(r);
+          found++;
+        }
+      }
+    } catch {}
+    if (i + 10 < todo.length) await new Promise(r => setTimeout(r, 200));
+  }
+  if (btn) btn.disabled = false;
+  showToast(`✓ Found ${found} title${found !== 1 ? 's' : ''}${todo.length - found > 0 ? ` (${todo.length - found} not found)` : ''}.`, found ? 'success' : 'info');
+  reRenderCurrentPanel();
+}
+
+async function exportAll() {
+  const apps = ['Mustang', 'Jaguar', 'Nano', 'Synthbee'];
+  let allRows = [];
+  for (const app of apps) {
+    let db;
+    try { db = await openNamedDB(app + 'DB'); } catch { continue; }
+    const tx = db.transaction(STORE, 'readonly');
+    const records = await new Promise((resolve, reject) => {
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    db.close();
+    for (const r of records) {
+      for (const d of (r.dates || [])) {
+        allRows.push(`${app},"${r.isbn}",${toISODate(d.date)},${d.added || ''}`);
+      }
+    }
+  }
+  if (!allRows.length) { showToast('No data to export across apps.', 'info'); return; }
+  const csv = 'App,ISBN,Date,Date Added\n' + allRows.join('\n');
+  triggerDownload('transmission_checkers_export.csv', csv, 'text/csv');
+  showToast(`✓ Exported ${allRows.length} rows across ${apps.length} apps.`, 'success');
 }
 
 // =============================================
@@ -1587,14 +1906,9 @@ async function renderStats() {
     document.getElementById('statTransmissions').textContent = totalTransmissions.toLocaleString();
     document.getElementById('statMonths').textContent = monthList.length.toLocaleString();
 
-    const topDates = allDates.slice(0, 10);
-    document.getElementById('statTopDates').innerHTML = `<h3 style="font-size:14px;margin-bottom:10px;">Top 10 Transmission Dates</h3>
-      <table><thead><tr><th>Date</th><th>ISBNs</th></tr></thead>
-      <tbody>${topDates.map(([d, c]) => `<tr><td class="isbn-cell">${escapeHtml(d)}</td><td style="font-weight:700;">${c}</td></tr>`).join('')}</tbody></table>`;
-
-    document.getElementById('statMonthlyBreakdown').innerHTML = `<h3 style="font-size:14px;margin-bottom:10px;">Monthly Breakdown</h3>
+    document.getElementById('statMonthlyBreakdown').innerHTML = `<h3 style="font-size:14px;margin-bottom:10px;" title="How many unique dates had transmissions in each month">Monthly Breakdown</h3>
       <table><thead><tr><th>Month</th><th>Active Days</th></tr></thead>
-      <tbody>${monthList.map(([m, c]) => `<tr><td class="isbn-cell">${escapeHtml(m)}</td><td style="font-weight:700;">${c}</td></tr>`).join('')}</tbody></table>`;
+      <tbody>${monthList.map(([m, c]) => `<tr><td>${escapeHtml(m)}</td><td style="font-weight:700;">${c}</td></tr>`).join('')}</tbody></table>`;
 
     // Find ISBNs with multiple transmission dates
     const multi = [];
