@@ -1,18 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#F0F2EF">
 <title>Transmission Checkers</title>
 <style>
-  body { font-family: Arial, sans-serif; background: #13181C; color: #E8EDE9; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 16px; padding: 40px 20px; }
-  a { display: block; width: 280px; padding: 18px; text-align: center; font-size: 18px; font-weight: 700; background: #1C2328; color: #3DBFA5; text-decoration: none; border-radius: 6px; border: 1px solid #2A3238; }
-  a:hover { background: #1A3430; }
+  :root {
+    --paper: #F0F2EF;
+    --ink: #14181C;
+    --ink-soft: #4A5158;
+    --card: #FAFBF9;
+    --teal: #1B6E63;
+    --teal-dark: #114A43;
+    --teal-light: #E8F3F1;
+    --line: #D0D4CF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  .header { text-align: center; margin-bottom: 40px; }
+  .header h1 {
+    font-family: Georgia, serif;
+    font-size: clamp(28px, 5vw, 38px);
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+  .header p { color: var(--ink-soft); font-size: 14px; }
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    justify-content: center;
+    max-width: 600px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 260px;
+    padding: 32px 20px 28px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--ink);
+    transition: all 0.15s;
+    gap: 6px;
+  }
+  .card:hover {
+    border-color: var(--teal);
+    box-shadow: 0 2px 12px rgba(27,110,99,0.12);
+  }
+  .card .name {
+    font-family: Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: -0.01em;
+  }
+  .card .sub {
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .card:hover .name { color: var(--teal-dark); }
 </style>
 </head>
 <body>
-  <h1>Transmission Checkers</h1>
-  <a href="Mustang.html">Mustang</a>
-  <a href="Jaguar.html">Jaguar</a>
-  <a href="Nano.html">Nano</a>
-  <a href="Synthbee.html">Synthbee</a>
+  <div class="header">
+    <h1>Transmission Checkers</h1>
+    <p>Select a checker to get started</p>
+  </div>
+  <div class="grid">
+    <a class="card" href="Mustang.html">
+      <span class="name">Mustang</span>
+      <span class="sub">Transmission Checker</span>
+    </a>
+    <a class="card" href="Jaguar.html">
+      <span class="name">Jaguar</span>
+      <span class="sub">Transmission Checker</span>
+    </a>
+    <a class="card" href="Nano.html">
+      <span class="name">Nano</span>
+      <span class="sub">Transmission Checker</span>
+    </a>
+    <a class="card" href="Synthbee.html">
+      <span class="name">Synthbee</span>
+      <span class="sub">Transmission Checker</span>
+    </a>
+  </div>
 </body>
 </html>
